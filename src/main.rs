@@ -46,15 +46,14 @@ fn extractors() -> IndexMap<&'static str, ExtractorDetail> {
                 use_for_bench: true,
             },
         ),
-        /*(
+        (
             "faster-greedy-dag",
             ExtractorDetail {
                 extractor: extract::faster_greedy_dag::FasterGreedyDagExtractor.boxed(),
                 optimal: Optimal::Neither,
                 use_for_bench: true,
             },
-        ),*/
-
+        ),
         /*(
             "global-greedy-dag",
             ExtractorDetail {
