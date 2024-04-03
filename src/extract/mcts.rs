@@ -1,4 +1,6 @@
 use super::*;
+
+//copied from mocats documentation to see if it is imported correctly
 use mocats::{tic_tac_toe, UctPolicy};
 
 pub struct MCTSExtractor;

@@ -54,6 +54,14 @@ fn extractors() -> IndexMap<&'static str, ExtractorDetail> {
                 use_for_bench: true,
             },
         ),
+        (
+            "mcts",
+            ExtractorDetail {
+                extractor: extract::mcts::MCTSExtractor.boxed(),
+                optimal: Optimal::Neither,
+                use_for_bench: true,
+            },
+        ),
         /*(
             "global-greedy-dag",
             ExtractorDetail {
