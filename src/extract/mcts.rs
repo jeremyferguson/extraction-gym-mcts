@@ -11,14 +11,14 @@ struct MCTSNode{
     min_cost: f64,
     min_cost_map: FxHashMap<ClassId,NodeId>,
     edges: FxHashMap<MCTSChoice,MCTSNode>,
-    parent: Option<&MCTSNode>,
+    parent: Option<Box<MCTSNode>>,
     parent_edge: Option<MCTSChoice>,
     explored: bool
 }
 
 pub struct MCTSExtractor;
 impl MCTSExtractor{
-    fn MCTS(&self, egraph: &EGraph, root: ClassId,num_iters: i32) -> FxHashMap<ClassId,NodeId> {
+    fn mcts(&self, egraph: &EGraph, root: ClassId,num_iters: i32) -> FxHashMap<ClassId,NodeId> {
         let mut root_node = MCTSNode{
             to_visit: HashSet::from([root]),
             decided_classes: FxHashMap::<ClassId, NodeId>::with_capacity_and_hasher(
@@ -40,7 +40,7 @@ impl MCTSExtractor{
             explored: false
         };
         for _ in 0..num_iters {
-            let leaf = self.chooseLeaf(root_node);
+            let leaf = self.choose_leaf(&root_node);
             match leaf {
                 Some(node) =>{
                     let (choices,new_node) = self.rollout(node,egraph);
@@ -50,11 +50,11 @@ impl MCTSExtractor{
         }
         return root_node.min_cost_map;
     }
-    fn chooseLeaf(&self,root: MCTSNode) -> Option<MCTSNode>{
+    fn choose_leaf(&self,root: &MCTSNode) -> Option<MCTSNode>{
         //TODO: Sora
         return None;
     }
-    fn UCT(&self)->(){
+    fn uct(&self)->(){
         //TODO: Sora
     }
     fn rollout(&self,node:MCTSNode,egraph:&EGraph) -> (FxHashMap<ClassId,NodeId>, MCTSNode) {
