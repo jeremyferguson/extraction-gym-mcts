@@ -19,30 +19,7 @@ struct MCTSNode{
 pub struct MCTSExtractor;
 impl Extractor for MCTSExtractor {
     fn extract(&self, egraph: &EGraph, _roots: &[ClassId]) -> ExtractionResult {
-        // let mut result = ExtractionResult::default();
-        // let mut costs = FxHashMap::<ClassId, Cost>::with_capacity_and_hasher  ;
-        // let mut did_something = false;
-
-        // loop {
-        //     for class in egraph.classes().values() {
-        //         for node in &class.nodes {
-        //             let cost = result.node_sum_cost(egraph, &egraph[node], &costs);
-        //             if &cost < costs.get(&class.id).unwrap_or(&INFINITY) {
-        //                 result.choose(class.id.clone(), node.clone());
-        //                 costs.insert(class.id.clone(), cost);
-        //                 did_something = true;
-        //             }
-        //         }
-        //     }
-
-        //     if did_something {
-        //         did_something = false;
-        //     } else {
-        //         break;
-        //     }
-        // }
-
-        // result
+        //TODO: fill in
     }
     fn MCTS(&self, egraph: &EGraph, root: ClassId,num_iters: i32) -> FxHashMap<ClassId,NodeId> {
         let mut root_node = MCTSNode{
@@ -67,12 +44,12 @@ impl Extractor for MCTSExtractor {
         return root_node.min_cost_map;
     }
     fn chooseLeaf(root: MCTSNode) -> Option<MCTSNode>{
-        return root;
+        //TODO: fill in
     }
     fn rollout(node:MCTSNode,egraph:EGraph) -> (FxHashMap<ClassId,NodeId>, MCTSNode) {
-
+        //TODO: fill in 
     }
     fn backprop(new_node:MCTSNode,choices:FxHashMap<ClassId,NodeId>) -> (){
-
+        //TODO: fill in
     }
 }
