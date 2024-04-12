@@ -9,6 +9,7 @@ pub mod faster_bottom_up;
 pub mod faster_greedy_dag;
 pub mod global_greedy_dag;
 pub mod greedy_dag;
+pub mod mcts;
 #[cfg(feature = "ilp-cbc")]
 pub mod ilp_cbc;
 
