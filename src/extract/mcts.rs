@@ -19,7 +19,7 @@ struct MCTSNode{
 pub struct MCTSExtractor;
 impl Extractor for MCTSExtractor {
     fn extract(&self, egraph: &EGraph, _roots: &[ClassId]) -> ExtractionResult {
-        //TODO: fill in
+        //TODO: Jacob
     }
     fn MCTS(&self, egraph: &EGraph, root: ClassId,num_iters: i32) -> FxHashMap<ClassId,NodeId> {
         let mut root_node = MCTSNode{
@@ -44,12 +44,15 @@ impl Extractor for MCTSExtractor {
         return root_node.min_cost_map;
     }
     fn chooseLeaf(root: MCTSNode) -> Option<MCTSNode>{
-        //TODO: fill in
+        //TODO: Sora
+    }
+    fn UCT(){
+        //TODO: Sora
     }
     fn rollout(node:MCTSNode,egraph:EGraph) -> (FxHashMap<ClassId,NodeId>, MCTSNode) {
-        //TODO: fill in 
+        //TODO: Jeremy
     }
     fn backprop(new_node:MCTSNode,choices:FxHashMap<ClassId,NodeId>) -> (){
-        //TODO: fill in
+        //TODO: Jacob
     }
 }
