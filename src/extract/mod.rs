@@ -9,9 +9,9 @@ pub mod faster_bottom_up;
 pub mod faster_greedy_dag;
 pub mod global_greedy_dag;
 pub mod greedy_dag;
-pub mod mcts;
 #[cfg(feature = "ilp-cbc")]
 pub mod ilp_cbc;
+pub mod mcts;
 
 // Allowance for floating point values to be considered equal
 pub const EPSILON_ALLOWANCE: f64 = 0.00001;
