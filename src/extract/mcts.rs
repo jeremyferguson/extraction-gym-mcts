@@ -50,13 +50,14 @@ impl MCTSExtractor {
             match leaf {
                 Some(node) => {
                     let (choices, new_node) = self.rollout(node, egraph);
-                    self.backprop(new_node, choices);
+                    self.backprop(egraph, new_node, choices);
                 }
                 None => break,
             };
         }
         return root_node.min_cost_map;
     }
+
     fn choose_leaf<'a>(&'a self, root: &'a MCTSNode, egraph: &EGraph) -> Option<&MCTSNode> {
         let mut curr = root;
         loop {
@@ -110,12 +111,12 @@ impl MCTSExtractor {
                 }
             }
         }
-        let choices = node.decided_classes;
+        let mut choices = node.decided_classes;
 
-        let new_to_visit = node.to_visit.clone();
+        let mut new_to_visit = node.to_visit.clone();
         new_to_visit.remove(&choice.class);
 
-        let new_decided = choices.clone();
+        let mut new_decided = choices.clone();
         new_decided[&choice.class] = choice.node;
 
         let new_node = MCTSNode{
@@ -153,10 +154,44 @@ impl MCTSExtractor {
         return (choices,&new_node);
         //TODO: Jeremy
     }
-    fn backprop(&self, new_node: &MCTSNode, choices: FxHashMap<ClassId, NodeId>) -> () {
-        //TODO: Jacob
+
+    fn backprop(&self, egraph: &EGraph, mut current: &MCTSNode, mut choices: FxHashMap<ClassId, NodeId>) -> () {
+        loop {
+            let choices_cost = self.cost(egraph, choices);
+            if choices_cost < current.min_cost {
+                current.min_cost = choices_cost;
+                current.min_cost_map = choices;
+            }
+            if !current.parent_edge.is_none() {
+                let parent = *current.parent_edge.unwrap();
+                choices.insert(parent.class, parent.node);
+            }
+            //TODO: add other condition
+            if current.to_visit.len() == 0 {
+                current.explored = true;
+            }
+            current.num_rollouts += 1; //TODO: is this right
+            if current.parent.is_none() {
+                break;
+            }
+            current = &*current.parent.unwrap();
+        }
+
+    }
+
+    fn cost(&self, egraph: &EGraph, choices: FxHashMap<ClassId, NodeId>) -> f64 {
+        let nodes = egraph.nodes;
+        let mut total_cost: f64 = 0.0;
+        for (class_id, node_id) in &choices {
+            let node = nodes.get(node_id);
+            if !node.is_none() {
+                total_cost += node.unwrap().cost.into_inner();
+            }
+        }
+        return total_cost;
     }
 }
+
 impl Extractor for MCTSExtractor {
     fn extract(&self, egraph: &EGraph, _roots: &[ClassId]) -> ExtractionResult {
         //TODO: Jacob
