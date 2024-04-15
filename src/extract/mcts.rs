@@ -58,6 +58,18 @@ impl MCTSExtractor{
         //TODO: Sora
     }
     fn rollout(&self,node:MCTSNode,egraph:&EGraph) -> (FxHashMap<ClassId,NodeId>, MCTSNode) {
+        let choice;
+        for class in &node.to_visit{
+            for enode in &class.nodes {
+                choice = MCTSChoice{
+                    class: class,
+                    node:enode
+                };
+                if !node.edges.contains_key(choice){
+                    break;
+                }
+            }
+        }
         return (FxHashMap::<ClassId, NodeId>::with_capacity_and_hasher(
             egraph.classes().len(),
             Default::default(),
