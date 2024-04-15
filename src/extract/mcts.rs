@@ -1,6 +1,8 @@
 use super::*;
 use std::collections::{BinaryHeap, HashSet};
 use std::f64::consts::SQRT_2;
+use std::iter::empty;
+use std::ops::Index;
 use rand::seq::SliceRandom;
 use std::rc::Rc;
 use std::rc::Weak;
@@ -23,6 +25,7 @@ struct MCTSNode {
 }
 
 const EXPLORATION_PARAM: f64 = SQRT_2;
+const NUM_ITERS: i32 = 100;
 
 pub struct MCTSExtractor;
 impl MCTSExtractor {
@@ -52,14 +55,23 @@ impl MCTSExtractor {
             match leaf {
                 Some(mut node) => {
                     let (choices, new_node) = self.rollout(node, egraph);
+<<<<<<< HEAD
                     self.backprop(&new_node, &choices);
+=======
+                    self.backprop(egraph, new_node, choices);
+>>>>>>> b1264f119ef702776c3e9aa756182cf8dace82a1
                 }
                 None => break,
             };
         }
         return root_node.min_cost_map;
     }
+<<<<<<< HEAD
     fn choose_leaf(&self, root: Box<MCTSNode>, egraph: &EGraph) -> Option<Box<MCTSNode>> {
+=======
+
+    fn choose_leaf<'a>(&'a self, root: &'a MCTSNode, egraph: &EGraph) -> Option<&MCTSNode> {
+>>>>>>> b1264f119ef702776c3e9aa756182cf8dace82a1
         let mut curr = root;
         loop {
             // look for a choice not in curr's edges
@@ -110,6 +122,7 @@ impl MCTSExtractor {
                 }
             }
         }
+<<<<<<< HEAD
         return None;
     }
     fn rollout(&self, node: Box<MCTSNode>, egraph: &EGraph) -> ( Box<FxHashMap<ClassId, NodeId>>, Box<MCTSNode>) {
@@ -120,6 +133,15 @@ impl MCTSExtractor {
         let mut new_decided : FxHashMap<ClassId, NodeId> = *choices.clone();
         new_decided.insert(first_choice.class.clone(),first_choice.node.clone());
         new_to_visit.remove(&first_choice.class);
+=======
+        let mut choices = node.decided_classes;
+
+        let mut new_to_visit = node.to_visit.clone();
+        new_to_visit.remove(&choice.class);
+
+        let mut new_decided = choices.clone();
+        new_decided[&choice.class] = choice.node;
+>>>>>>> b1264f119ef702776c3e9aa756182cf8dace82a1
 
         let new_node = MCTSNode{
             to_visit: new_to_visit,
@@ -167,14 +189,64 @@ impl MCTSExtractor {
         }
         return (choices,new_node);
     }
+<<<<<<< HEAD
     fn backprop(&self, _new_node: &MCTSNode, _choices: &FxHashMap<ClassId, NodeId>) -> () {
         //TODO: Jacob
+=======
+
+    fn backprop(&self, egraph: &EGraph, mut current: &MCTSNode, mut choices: FxHashMap<ClassId, NodeId>) -> () {
+        loop {
+            let choices_cost = self.cost(egraph, choices);
+            if choices_cost < current.min_cost {
+                current.min_cost = choices_cost;
+                current.min_cost_map = choices;
+            }
+            if !current.parent_edge.is_none() {
+                let parent = *current.parent_edge.unwrap();
+                choices.insert(parent.class, parent.node);
+            }
+            //TODO: add other condition
+            if current.to_visit.len() == 0 {
+                current.explored = true;
+            }
+            current.num_rollouts += 1; //TODO: is this right
+            if current.parent.is_none() {
+                break;
+            }
+            current = &*current.parent.unwrap();
+        }
+
+    }
+
+    fn cost(&self, egraph: &EGraph, choices: FxHashMap<ClassId, NodeId>) -> f64 {
+        let nodes = egraph.nodes;
+        let mut total_cost: f64 = 0.0;
+        for (class_id, node_id) in &choices {
+            let node = nodes.get(node_id);
+            if !node.is_none() {
+                total_cost += node.unwrap().cost.into_inner();
+            }
+        }
+        return total_cost;
+>>>>>>> b1264f119ef702776c3e9aa756182cf8dace82a1
     }
 }
+
 impl Extractor for MCTSExtractor {
+<<<<<<< HEAD
     fn extract(&self, _egraph: &EGraph, _roots: &[ClassId]) -> ExtractionResult {
         //TODO: Jacob
         let result = ExtractionResult::default();
+=======
+    fn extract(&self, egraph: &EGraph, roots: &[ClassId]) -> ExtractionResult {
+        //TODO: Jacob
+        let mut result = ExtractionResult::default();
+        result.choices = IndexMap::new();
+        for root in roots {
+            //TODO: multiple roots behavior?
+            result.choices.extend(self.mcts(egraph, *root, NUM_ITERS).into_iter());
+        }
+>>>>>>> b1264f119ef702776c3e9aa756182cf8dace82a1
         return result;
     }
 }
