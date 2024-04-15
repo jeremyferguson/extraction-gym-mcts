@@ -1,6 +1,8 @@
 use super::*;
 use std::collections::{BinaryHeap, HashSet};
 use std::f64::consts::SQRT_2;
+use std::iter::empty;
+use std::ops::Index;
 use rand::seq::SliceRandom;
 
 #[derive(PartialEq, Eq, Hash)]
@@ -21,6 +23,7 @@ struct MCTSNode {
 }
 
 const EXPLORATION_PARAM: f64 = SQRT_2;
+const NUM_ITERS: i32 = 100;
 
 pub struct MCTSExtractor;
 impl MCTSExtractor {
@@ -193,9 +196,14 @@ impl MCTSExtractor {
 }
 
 impl Extractor for MCTSExtractor {
-    fn extract(&self, egraph: &EGraph, _roots: &[ClassId]) -> ExtractionResult {
+    fn extract(&self, egraph: &EGraph, roots: &[ClassId]) -> ExtractionResult {
         //TODO: Jacob
         let mut result = ExtractionResult::default();
+        result.choices = IndexMap::new();
+        for root in roots {
+            //TODO: multiple roots behavior?
+            result.choices.extend(self.mcts(egraph, *root, NUM_ITERS).into_iter());
+        }
         return result;
     }
 }
