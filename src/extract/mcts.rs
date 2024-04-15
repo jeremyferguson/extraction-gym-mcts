@@ -55,23 +55,14 @@ impl MCTSExtractor {
             match leaf {
                 Some(mut node) => {
                     let (choices, new_node) = self.rollout(node, egraph);
-<<<<<<< HEAD
-                    self.backprop(&new_node, &choices);
-=======
                     self.backprop(egraph, new_node, choices);
->>>>>>> b1264f119ef702776c3e9aa756182cf8dace82a1
                 }
                 None => break,
             };
         }
         return root_node.min_cost_map;
     }
-<<<<<<< HEAD
     fn choose_leaf(&self, root: Box<MCTSNode>, egraph: &EGraph) -> Option<Box<MCTSNode>> {
-=======
-
-    fn choose_leaf<'a>(&'a self, root: &'a MCTSNode, egraph: &EGraph) -> Option<&MCTSNode> {
->>>>>>> b1264f119ef702776c3e9aa756182cf8dace82a1
         let mut curr = root;
         loop {
             // look for a choice not in curr's edges
@@ -122,7 +113,6 @@ impl MCTSExtractor {
                 }
             }
         }
-<<<<<<< HEAD
         return None;
     }
     fn rollout(&self, node: Box<MCTSNode>, egraph: &EGraph) -> ( Box<FxHashMap<ClassId, NodeId>>, Box<MCTSNode>) {
@@ -133,16 +123,6 @@ impl MCTSExtractor {
         let mut new_decided : FxHashMap<ClassId, NodeId> = *choices.clone();
         new_decided.insert(first_choice.class.clone(),first_choice.node.clone());
         new_to_visit.remove(&first_choice.class);
-=======
-        let mut choices = node.decided_classes;
-
-        let mut new_to_visit = node.to_visit.clone();
-        new_to_visit.remove(&choice.class);
-
-        let mut new_decided = choices.clone();
-        new_decided[&choice.class] = choice.node;
->>>>>>> b1264f119ef702776c3e9aa756182cf8dace82a1
-
         let new_node = MCTSNode{
             to_visit: new_to_visit,
             decided_classes: new_decided,
@@ -189,10 +169,7 @@ impl MCTSExtractor {
         }
         return (choices,new_node);
     }
-<<<<<<< HEAD
-    fn backprop(&self, _new_node: &MCTSNode, _choices: &FxHashMap<ClassId, NodeId>) -> () {
-        //TODO: Jacob
-=======
+
 
     fn backprop(&self, egraph: &EGraph, mut current: &MCTSNode, mut choices: FxHashMap<ClassId, NodeId>) -> () {
         loop {
@@ -228,16 +205,10 @@ impl MCTSExtractor {
             }
         }
         return total_cost;
->>>>>>> b1264f119ef702776c3e9aa756182cf8dace82a1
     }
 }
 
 impl Extractor for MCTSExtractor {
-<<<<<<< HEAD
-    fn extract(&self, _egraph: &EGraph, _roots: &[ClassId]) -> ExtractionResult {
-        //TODO: Jacob
-        let result = ExtractionResult::default();
-=======
     fn extract(&self, egraph: &EGraph, roots: &[ClassId]) -> ExtractionResult {
         //TODO: Jacob
         let mut result = ExtractionResult::default();
@@ -246,7 +217,6 @@ impl Extractor for MCTSExtractor {
             //TODO: multiple roots behavior?
             result.choices.extend(self.mcts(egraph, *root, NUM_ITERS).into_iter());
         }
->>>>>>> b1264f119ef702776c3e9aa756182cf8dace82a1
         return result;
     }
 }
