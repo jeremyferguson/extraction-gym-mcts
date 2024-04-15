@@ -16,9 +16,9 @@ struct MCTSNode {
     num_rollouts: i32,
     min_cost: f64,
     min_cost_map: FxHashMap<ClassId, NodeId>,
-    edges: FxHashMap<Box<MCTSChoice>, Rc<MCTSNode>>,
-    parent: Option<Weak<MCTSNode>>,
-    parent_edge: Option<Box<MCTSChoice>>,
+    edges: FxHashMap<MCTSChoice, Box<MCTSNode>>,
+    parent: Option<Box<MCTSNode>>,
+    parent_edge: Option<MCTSChoice>,
     explored: bool,
 }
 
@@ -27,7 +27,7 @@ const EXPLORATION_PARAM: f64 = SQRT_2;
 pub struct MCTSExtractor;
 impl MCTSExtractor {
     fn mcts<'b>(&mut self, egraph: &EGraph, root: ClassId, num_iters: i32) -> FxHashMap<ClassId, NodeId> {
-        let root_node = MCTSNode {
+        let root_node = Box::new(MCTSNode {
             to_visit: HashSet::from([root]),
             decided_classes: FxHashMap::<ClassId, NodeId>::with_capacity_and_hasher(
                 egraph.classes().len(),
@@ -39,19 +39,19 @@ impl MCTSExtractor {
                 egraph.classes().len(),
                 Default::default(),
             ),
-            edges: FxHashMap::<Box<MCTSChoice>, Rc<MCTSNode>>::with_capacity_and_hasher(
+            edges: FxHashMap::<MCTSChoice, Box<MCTSNode>>::with_capacity_and_hasher(
                 egraph.classes().len(), //TODO: check if this is correct
                 Default::default(),
             ),
             parent: None,
             parent_edge: None,
             explored: false,
-        };
+        });
         for _ in 0..num_iters {
-            let leaf = self.choose_leaf(&root_node, egraph);
+            let leaf = self.choose_leaf(root_node, egraph);
             match leaf {
                 Some(mut node) => {
-                    let (choices, new_node) = self.rollout(&mut node, egraph);
+                    let (choices, new_node) = self.rollout(node, egraph);
                     self.backprop(&new_node, &choices);
                 }
                 None => break,
@@ -59,7 +59,7 @@ impl MCTSExtractor {
         }
         return root_node.min_cost_map;
     }
-    fn choose_leaf<'a>(&'a self, root: &'a MCTSNode, egraph: &EGraph) -> Option<&MCTSNode> {
+    fn choose_leaf(&self, root: Box<MCTSNode>, egraph: &EGraph) -> Option<Box<MCTSNode>> {
         let mut curr = root;
         loop {
             // look for a choice not in curr's edges
@@ -72,14 +72,14 @@ impl MCTSExtractor {
             }
             // if we get here, then all choices are in curr's edges
             // filter edges for ones that are not explored
-            let unexplored_children: Vec<&MCTSNode> = curr.edges.values().filter(|n| !n.explored).map(|n| &(**n)).collect();
+            let unexplored_children: Vec<Box<MCTSNode>> = curr.edges.values().filter(|n| !n.explored).map(|n| *n).collect();
             // if there are no unexplored children, then we've completely explored the tree
             if unexplored_children.is_empty() { return None; }
             // map nodes to uct cost and choose node which maximizes uct
             curr = self.uct_choose_from_nodes(unexplored_children, curr.num_rollouts);
         }
     }
-    fn uct_choose_from_nodes<'a>(&'a self, nodes: Vec<&'a MCTSNode>, parent_num_rollouts: i32) -> &MCTSNode {
+    fn uct_choose_from_nodes(& self, nodes: Vec<Box<MCTSNode>>, parent_num_rollouts: i32) -> Box<MCTSNode> {
         // pre-compute min and max cost
         let mut min_cost: f64 = f64::INFINITY;
         let mut max_cost: f64 = f64::NEG_INFINITY;
@@ -102,27 +102,26 @@ impl MCTSExtractor {
         let rollout_term = EXPLORATION_PARAM * (parent_num_rollouts.ln() / num_rollouts).sqrt();
         cost_term + rollout_term
     }
-    fn find_first_node(& self, node: &MCTSNode, egraph: & EGraph) -> Option<Box<MCTSChoice>> {
+    fn find_first_node(& self, node: Box<MCTSNode>, egraph: & EGraph) -> Option<MCTSChoice> {
         for class_id in node.to_visit.iter(){
             for node_id in egraph.classes().get(class_id).unwrap().nodes.iter(){
                 if !node.edges.contains_key(&MCTSChoice { class: (*class_id).clone(), node: (*node_id).clone() }){
-                    return Some(Box::new(MCTSChoice { class: (*class_id).clone(), node: (*node_id).clone() }));
+                    return Some(MCTSChoice { class: (*class_id).clone(), node: (*node_id).clone() });
                 }
             }
         }
         return None;
     }
-    fn rollout(&self, node: &mut MCTSNode, egraph: &EGraph) -> ( Box<FxHashMap<ClassId, NodeId>>, Rc<MCTSNode>) where{
-        let first_choice : Box<MCTSChoice> = self.find_first_node(node,egraph).unwrap();
-        let mut choices : Box<FxHashMap<ClassId, NodeId>> = Box::new(node.decided_classes.clone());
+    fn rollout(&self, node: Box<MCTSNode>, egraph: &EGraph) -> ( Box<FxHashMap<ClassId, NodeId>>, Box<MCTSNode>) {
+        let first_choice : MCTSChoice = self.find_first_node(node,egraph).unwrap();
+        let choices : Box<FxHashMap<ClassId, NodeId>> = Box::new(node.decided_classes.clone());
         let mut new_to_visit = node.to_visit.clone();
 
         let mut new_decided : FxHashMap<ClassId, NodeId> = *choices.clone();
         new_decided.insert(first_choice.class.clone(),first_choice.node.clone());
         new_to_visit.remove(&first_choice.class);
-        let node_rc = Rc::new(&*node);
 
-        let mut new_node = MCTSNode{
+        let new_node = MCTSNode{
             to_visit: new_to_visit,
             decided_classes: new_decided,
             num_rollouts: 0,
@@ -131,37 +130,40 @@ impl MCTSExtractor {
                 egraph.classes().len(),
                 Default::default(),
             ),
-            edges: FxHashMap::<Box<MCTSChoice>, Rc<MCTSNode>>::with_capacity_and_hasher(
+            edges: FxHashMap::<MCTSChoice, Box<MCTSNode>>::with_capacity_and_hasher(
                 egraph.classes().len(), //TODO: check if this is correct
                 Default::default(),
             ),
-            parent: Some(Rc::downgrade(&node_rc)),
+            parent: Some(node),
             parent_edge: Some(first_choice.clone()),
             explored: false
         };
-        let new_node = Rc::new(new_node);
-        node.edges.insert(first_choice.clone(),Rc::clone(&new_node)); 
-        node.to_visit.remove(&first_choice.class);
-        let mut first = true;
-        while !node.to_visit.is_empty(){
-            let choice;
-            if first{
-                choice = first_choice.clone();
-                first = false;
-            } else{
-
-                let to_visit_vec : Vec<ClassId> = node.to_visit.clone().into_iter().collect();
-                let class_choice = to_visit_vec.choose(&mut rand::thread_rng()).unwrap();
-                let node_choice = egraph[class_choice].nodes.choose(&mut rand::thread_rng()).unwrap();
-                choice = Box::new(MCTSChoice { class: (*class_choice).clone(), node: (*node_choice).clone() });
-            }
+        let new_node = Box::new(new_node);
+        node.edges.insert(first_choice.clone(),new_node); 
+        let mut todo = new_to_visit.clone();
+        //First iteration of the loop: remove first choice from todo list
+        //add children to todo list
+        todo.remove(&first_choice.class);
+        choices.insert(first_choice.class.clone(),first_choice.node.clone());
+        let children = egraph[&first_choice.node].children.clone().into_iter().map(|n| egraph.nid_to_cid(&n)).filter(
+            |n| !choices.contains_key(n));
+        for child in children{
+            todo.insert(child.clone());
+        }
+        while !todo.is_empty(){
+            //randomly choose a class from todo, and a node from the class
+            let to_visit_vec : Vec<ClassId> = todo.clone().into_iter().collect();
+            let class_choice = to_visit_vec.choose(&mut rand::thread_rng()).unwrap();
+            let node_choice = egraph[class_choice].nodes.choose(&mut rand::thread_rng()).unwrap();
+            let choice = MCTSChoice { class: (*class_choice).clone(), node: (*node_choice).clone() };
+            //add choice to choices and add children of choice to todo
             choices.insert(choice.class.clone(),choice.node.clone());
             let children = egraph[&choice.node].children.clone().into_iter().map(|n| egraph.nid_to_cid(&n)).filter(
                 |n| !choices.contains_key(n));
             for child in children{
-                node.to_visit.insert(child.clone());
+                todo.insert(child.clone());
             }
-            node.to_visit.remove(&choice.class);
+            todo.remove(&choice.class);
         }
         return (choices,new_node);
     }
