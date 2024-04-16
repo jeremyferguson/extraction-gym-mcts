@@ -195,6 +195,7 @@ impl MCTSExtractor {
     }
 
     fn backprop(&self, egraph: &EGraph, current_index: usize, mut choices: Box<FxHashMap<ClassId, NodeId>>, tree: &MCTSTree) -> () {
+        let mut current = tree[current_index];
         loop {
             // compute cost
             let choices_cost = self.cost(egraph, choices.clone());
@@ -213,14 +214,14 @@ impl MCTSExtractor {
                 current.explored = true;
             }
             // if all current's children are explored, then it's explored
-            if current.edges.values().all(|n| n.explored) {
+            if current.edges.values().all(|n| tree[*n].explored) {
                 current.explored = true;
             }
             // increment current's num_rollouts
-            current.num_rollouts += 1; //TODO: is this right
+            current.num_rollouts += 1;
             match current.parent {
                 None => break,
-                Some (mut n) => current = &mut n
+                Some (mut n) => current = tree[n]
             }
         }
     }
