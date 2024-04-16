@@ -60,9 +60,9 @@ impl MCTSExtractor {
             let leaf = self.choose_leaf(root_node.clone(), egraph);
             match leaf {
                 Some(mut node) => {
-                    //let (choices, new_node) = self.rollout(node, egraph);
-                    //println!("Tree size: {}",self.compute_mcts_tree_size(&root_node.clone()));
-                    //self.backprop(egraph, new_node, choices);
+                    let (choices, new_node) = self.rollout(node, egraph);
+                    println!("Tree size: {}",self.compute_mcts_tree_size(&root_node.clone()));
+                    self.backprop(egraph, new_node, choices);
                 }
                 None => break,
             };
