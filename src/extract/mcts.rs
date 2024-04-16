@@ -2,6 +2,7 @@ use super::*;
 use std::collections::{BinaryHeap, HashSet};
 use std::f64::consts::SQRT_2;
 use rand::seq::SliceRandom;
+use rpds::Vector;
 
 #[derive(PartialEq, Eq, Hash,Clone)]
 struct MCTSChoice {
@@ -15,28 +16,31 @@ struct MCTSNode {
     num_rollouts: i32,
     min_cost: f64,
     min_cost_map: FxHashMap<ClassId, NodeId>,
-    edges: FxHashMap<MCTSChoice, Box<MCTSNode>>,
-    parent: Option<Box<MCTSNode>>,
+    edges: FxHashMap<MCTSChoice, usize>,
+    parent: Option<usize>,
     parent_edge: Option<MCTSChoice>,
     explored: bool,
 }
-
+type MCTSTree = Vector<MCTSNode>;
 const EXPLORATION_PARAM: f64 = SQRT_2;
 const NUM_ITERS: i32 = 100;
 
 pub struct MCTSExtractor;
 impl MCTSExtractor {
     //helper function
-    fn compute_mcts_tree_size(&self, root: &Box<MCTSNode>) -> i32{
-        let mut sum: i32 = 1;
-        for (_, node) in root.edges.iter(){
-            sum += self.compute_mcts_tree_size(node);
-        }
-        return sum;
-    }
+    // fn compute_mcts_tree_size(&self, root: &Box<MCTSNode>) -> i32{
+    //     let mut sum: i32 = 1;
+    //     for (_, node) in root.edges.iter(){
+    //         sum += self.compute_mcts_tree_size(node);
+    //     }
+    //     return sum;
+    // }
 
     fn mcts(&self, egraph: &EGraph, root: ClassId, num_iters: i32) -> FxHashMap<ClassId, NodeId> {
-        let root_node = Box::new(MCTSNode {
+        // initialize the vector which will contain all our nodes
+        let mut tree: MCTSTree = Vector::new();
+        // initialize the root node of the tree
+        tree.append(MCTSNode {
             to_visit: HashSet::from([root]),
             decided_classes: FxHashMap::<ClassId, NodeId>::with_capacity_and_hasher(
                 egraph.classes().len(),
@@ -48,8 +52,8 @@ impl MCTSExtractor {
                 egraph.classes().len(),
                 Default::default(),
             ),
-            edges: FxHashMap::<MCTSChoice, Box<MCTSNode>>::with_capacity_and_hasher(
-                egraph.classes().len(), //TODO: check if this is correct
+            edges: FxHashMap::<MCTSChoice, usize>::with_capacity_and_hasher(
+                egraph.classes().len(),
                 Default::default(),
             ),
             parent: None,
@@ -57,39 +61,42 @@ impl MCTSExtractor {
             explored: false,
         });
         for _ in 0..num_iters {
-            let leaf = self.choose_leaf(root_node.clone(), egraph);
+            let leaf: Option<usize> = self.choose_leaf(0, egraph, &tree);
             match leaf {
-                Some(mut node) => {
-                    let (choices, new_node) = self.rollout(node, egraph);
-                    println!("Tree size: {}",self.compute_mcts_tree_size(&root_node.clone()));
-                    self.backprop(egraph, new_node, choices);
+                Some(leaf_index) => {
+                    let (choices, new_node_index) = self.rollout(leaf_index, egraph, &mut tree);
+                    // println!("Tree size: {}",self.compute_mcts_tree_size(&root_node.clone()));
+                    self.backprop(egraph, new_node_index, choices, &tree);
                 }
                 None => break,
             };
         }
-        return root_node.min_cost_map;
+        return tree[0].min_cost_map.clone();
     }
-    fn choose_leaf(&self, root: Box<MCTSNode>, egraph: &EGraph) -> Option<Box<MCTSNode>> {
-        let mut curr = root;
-        loop {
-            // look for a choice not in curr's edges
-            for class_id in curr.to_visit.iter() {
-                for node_id in egraph.classes().get(class_id).unwrap().nodes.iter() {
-                    if !curr.edges.contains_key(&MCTSChoice { class: (*class_id).clone(), node: (*node_id).clone() }) {
-                        return Some(curr);
-                    }
+
+    fn choose_leaf<'a>(&self, curr: usize, egraph: &EGraph, tree: &MCTSTree) -> Option<usize> {
+        // look for a choice not in curr's edges
+        for class_id in curr.to_visit.iter() {
+            for node_id in egraph.classes().get(class_id).unwrap().nodes.iter() {
+                if !curr.edges.contains_key(&MCTSChoice { class: (*class_id).clone(), node: (*node_id).clone() }) {
+                    *leaf_slot = Some(curr);
+                    return
                 }
             }
-            // if we get here, then all choices are in curr's edges
-            // filter edges for ones that are not explored
-            let unexplored_children: Vec<Box<MCTSNode>> = curr.edges.values().filter(|n| !n.explored).map(|n| Box::new(*(n.clone()))).collect();
-            // if there are no unexplored children, then we've completely explored the tree
-            if unexplored_children.is_empty() { return None; }
-            // map nodes to uct cost and choose node which maximizes uct
-            curr = self.uct_choose_from_nodes(unexplored_children, curr.num_rollouts);
         }
+        // if we get here, then all choices are in curr's edges
+        // filter edges for ones that are not explored
+        let unexplored_children: Vec<Box<MCTSNode>> = curr.edges.values()
+            .filter(|n| !n.explored)
+            .map(|n| Box::new(*(n.clone())))
+            .collect();
+        // if there are no unexplored children, then we've completely explored the tree
+        if unexplored_children.is_empty() { *leaf_slot = None; return }
+        // map nodes to uct cost and recurse on node which maximizes uct
+        let next_curr = self.uct_choose_from_nodes(unexplored_children, curr.num_rollouts);
+        self.choose_leaf(next_curr, egraph, leaf_slot)
     }
-    fn uct_choose_from_nodes(& self, nodes: Vec<Box<MCTSNode>>, parent_num_rollouts: i32) -> Box<MCTSNode> {
+    fn uct_choose_from_nodes(&self, nodes: Vec<Box<MCTSNode>>, parent_num_rollouts: i32) -> Box<MCTSNode> {
         // pre-compute min and max cost
         let mut min_cost: f64 = f64::INFINITY;
         let mut max_cost: f64 = f64::NEG_INFINITY;
@@ -122,7 +129,7 @@ impl MCTSExtractor {
         }
         return None;
     }
-    fn rollout(&self, mut node: Box<MCTSNode>, egraph: &EGraph) -> ( Box<FxHashMap<ClassId, NodeId>>, Box<MCTSNode>) {
+    fn rollout(&self, node: usize, egraph: &EGraph, tree: &mut MCTSTree) -> (Box<FxHashMap<ClassId, NodeId>>, usize) {
         // get an MCTSChoice to take from the leaf node
         let first_choice : MCTSChoice = self.find_first_node(node.clone(),egraph).unwrap();
 
@@ -151,7 +158,7 @@ impl MCTSExtractor {
                 Default::default(),
             ),
             edges: FxHashMap::<MCTSChoice, Box<MCTSNode>>::with_capacity_and_hasher(
-                egraph.classes().len(), //TODO: check if this is correct
+                egraph.classes().len(),
                 Default::default(),
             ),
             parent: Some(node.clone()),
@@ -184,8 +191,7 @@ impl MCTSExtractor {
         return (choices, new_node);
     }
 
-
-    fn backprop(&self, egraph: &EGraph, mut current: Box<MCTSNode>, mut choices: Box<FxHashMap<ClassId, NodeId>>) -> () {
+    fn backprop(&self, egraph: &EGraph, current_index: usize, mut choices: Box<FxHashMap<ClassId, NodeId>>, tree: &MCTSTree) -> () {
         loop {
             // compute cost
             let choices_cost = self.cost(egraph, choices.clone());
@@ -211,7 +217,7 @@ impl MCTSExtractor {
             current.num_rollouts += 1; //TODO: is this right
             match current.parent {
                 None => break,
-                Some (n) => current = n
+                Some (mut n) => current = &mut n
             }
         }
     }
@@ -230,7 +236,6 @@ impl MCTSExtractor {
 
 impl Extractor for MCTSExtractor {
     fn extract(&self, egraph: &EGraph, roots: &[ClassId]) -> ExtractionResult {
-        //TODO: Jacob
         let mut result = ExtractionResult::default();
         result.choices = IndexMap::new();
         let mcts_results = self.mcts(egraph, roots[0].clone(), NUM_ITERS);
