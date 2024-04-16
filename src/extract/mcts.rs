@@ -2,7 +2,6 @@ use super::*;
 use std::collections::{BinaryHeap, HashSet};
 use std::f64::consts::SQRT_2;
 use rand::seq::SliceRandom;
-use rpds::Vector;
 
 #[derive(PartialEq, Eq, Hash,Clone)]
 struct MCTSChoice {
@@ -21,7 +20,7 @@ struct MCTSNode {
     parent_edge: Option<MCTSChoice>,
     explored: bool,
 }
-type MCTSTree = Vector<MCTSNode>;
+type MCTSTree = Vec<MCTSNode>;
 const EXPLORATION_PARAM: f64 = SQRT_2;
 const NUM_ITERS: i32 = 100;
 
@@ -38,9 +37,9 @@ impl MCTSExtractor {
 
     fn mcts(&self, egraph: &EGraph, root: ClassId, num_iters: i32) -> FxHashMap<ClassId, NodeId> {
         // initialize the vector which will contain all our nodes
-        let mut tree: MCTSTree = Vector::new();
+        let mut tree: MCTSTree = Vec::new();
         // initialize the root node of the tree
-        tree.append(MCTSNode {
+        tree.push(MCTSNode {
             to_visit: HashSet::from([root]),
             decided_classes: FxHashMap::<ClassId, NodeId>::with_capacity_and_hasher(
                 egraph.classes().len(),
@@ -119,7 +118,8 @@ impl MCTSExtractor {
         let rollout_term = EXPLORATION_PARAM * (parent_num_rollouts.ln() / num_rollouts).sqrt();
         cost_term + rollout_term
     }
-    fn find_first_node(& self, node: Box<MCTSNode>, egraph: & EGraph) -> Option<MCTSChoice> {
+    fn find_first_node(& self, node_index: usize, egraph: & EGraph,tree: &MCTSTree) -> Option<MCTSChoice> {
+        let node = tree[node_index];
         for class_id in node.to_visit.iter(){
             for node_id in egraph.classes().get(class_id).unwrap().nodes.iter(){
                 if !node.edges.contains_key(&MCTSChoice { class: (*class_id).clone(), node: (*node_id).clone() }){
@@ -129,11 +129,11 @@ impl MCTSExtractor {
         }
         return None;
     }
-    fn rollout(&self, node: usize, egraph: &EGraph, tree: &mut MCTSTree) -> (Box<FxHashMap<ClassId, NodeId>>, usize) {
+    fn rollout(&self, node_index: usize, egraph: &EGraph, tree: &mut MCTSTree) -> (Box<FxHashMap<ClassId, NodeId>>, usize) {
         // get an MCTSChoice to take from the leaf node
-        let first_choice : MCTSChoice = self.find_first_node(node.clone(),egraph).unwrap();
+        let first_choice : MCTSChoice = self.find_first_node(node_index.clone(),egraph,tree).unwrap();
 
-        // initialize the new MCTSNode
+        let mut node = tree[node_index];
         // initialize the MCTSNode's decided map and add the MCTSChoice we chose above
         let mut new_decided : FxHashMap<ClassId, NodeId> = node.decided_classes.clone();
         new_decided.insert(first_choice.class.clone(),first_choice.node.clone());
@@ -148,7 +148,7 @@ impl MCTSExtractor {
         for child in children{
             new_to_visit.insert(child.clone());
         }
-        let new_node = Box::new(MCTSNode{
+        tree.push(MCTSNode{
             to_visit: new_to_visit.clone(),
             decided_classes: new_decided.clone(),
             num_rollouts: 0,
@@ -157,16 +157,17 @@ impl MCTSExtractor {
                 egraph.classes().len(),
                 Default::default(),
             ),
-            edges: FxHashMap::<MCTSChoice, Box<MCTSNode>>::with_capacity_and_hasher(
+            edges: FxHashMap::<MCTSChoice, usize>::with_capacity_and_hasher(
                 egraph.classes().len(),
                 Default::default(),
             ),
-            parent: Some(node.clone()),
+            parent: Some(node_index),
             parent_edge: Some(first_choice.clone()),
             explored: false
         });
+        let new_node_index = tree.len() - 1;
         // update the leaf node to have an edge pointing to the node we just created
-        node.edges.insert(first_choice.clone(), new_node.clone());
+        node.edges.insert(first_choice.clone(), new_node_index);
 
         // clone new_to_visit to have a todo list for our rollout
         let mut todo = new_to_visit.clone();
@@ -188,7 +189,7 @@ impl MCTSExtractor {
             }
             todo.remove(&choice.class);
         }
-        return (choices, new_node);
+        return (choices, new_node_index);
     }
 
     fn backprop(&self, egraph: &EGraph, current_index: usize, mut choices: Box<FxHashMap<ClassId, NodeId>>, tree: &MCTSTree) -> () {
