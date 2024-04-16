@@ -73,45 +73,49 @@ impl MCTSExtractor {
         return tree[0].min_cost_map.clone();
     }
 
-    fn choose_leaf<'a>(&self, curr: usize, egraph: &EGraph, tree: &MCTSTree) -> Option<usize> {
+    fn choose_leaf(&self, curr: usize, egraph: &EGraph, tree: &MCTSTree) -> Option<usize> {
         // look for a choice not in curr's edges
-        for class_id in curr.to_visit.iter() {
+        let curr_node = &tree[curr];
+        for class_id in curr_node.to_visit.iter() {
             for node_id in egraph.classes().get(class_id).unwrap().nodes.iter() {
-                if !curr.edges.contains_key(&MCTSChoice { class: (*class_id).clone(), node: (*node_id).clone() }) {
-                    *leaf_slot = Some(curr);
-                    return
+                let choice = MCTSChoice {class: (*class_id).clone(), node: (*node_id).clone()};
+                if !curr_node.edges.contains_key(&choice) {
+                    return Some(curr);
                 }
             }
         }
         // if we get here, then all choices are in curr's edges
         // filter edges for ones that are not explored
-        let unexplored_children: Vec<Box<MCTSNode>> = curr.edges.values()
-            .filter(|n| !n.explored)
-            .map(|n| Box::new(*(n.clone())))
+        let unexplored_children: Vec<usize> = curr_node.edges.values()
+            .map(|i| (i, &tree[i]))
+            .filter(|(i, n)| !n.explored)
+            .map(|(i, _)| i)
             .collect();
         // if there are no unexplored children, then we've completely explored the tree
-        if unexplored_children.is_empty() { *leaf_slot = None; return }
+        if unexplored_children.is_empty() { return None }
         // map nodes to uct cost and recurse on node which maximizes uct
-        let next_curr = self.uct_choose_from_nodes(unexplored_children, curr.num_rollouts);
-        self.choose_leaf(next_curr, egraph, leaf_slot)
+        let next_curr = self.uct_choose_from_nodes(unexplored_children, curr_node.num_rollouts, tree);
+        self.choose_leaf(next_curr, egraph, tree)
     }
-    fn uct_choose_from_nodes(&self, nodes: Vec<Box<MCTSNode>>, parent_num_rollouts: i32) -> Box<MCTSNode> {
+    fn uct_choose_from_nodes(&self, node_indices: Vec<usize>, parent_num_rollouts: i32, tree: &MCTSTree) -> usize {
         // pre-compute min and max cost
         let mut min_cost: f64 = f64::INFINITY;
         let mut max_cost: f64 = f64::NEG_INFINITY;
-        for node in nodes.iter() {
+        for node_index in node_indices.iter() {
+            let node = &tree[node_index];
             min_cost = min_cost.min(node.min_cost);
             max_cost = max_cost.max(node.min_cost)
         }
         // Initialize an empty max heap
-        let mut uct_heap: BinaryHeap<(NotNan<f64>, usize)> = BinaryHeap::with_capacity(nodes.len());
+        let mut uct_heap: BinaryHeap<(NotNan<f64>, usize)> = BinaryHeap::with_capacity(node_indices.len());
         // For each node, compute uct and insert into heap
-        for (i, node) in nodes.iter().enumerate() {
+        for (i, node_index) in node_indices.iter().enumerate() {
+            let node = &tree[node_index];
             let uct_cost = self.compute_uct(node.min_cost, min_cost, max_cost, node.num_rollouts as f64, parent_num_rollouts as f64);
             uct_heap.push((NotNan::new(uct_cost).unwrap(), i))
         }
-        let (_, node_index) = uct_heap.pop().unwrap();
-        nodes[node_index].clone()
+        let (_, i) = uct_heap.pop().unwrap();
+        node_indices[i]
     }
     fn compute_uct(&self, cost: f64, min_cost: f64, max_cost: f64, num_rollouts: f64, parent_num_rollouts: f64) -> f64 {
         let cost_term = 1.0 - ((cost - min_cost) / (max_cost - min_cost));
