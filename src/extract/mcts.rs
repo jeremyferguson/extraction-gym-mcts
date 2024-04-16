@@ -134,9 +134,11 @@ impl MCTSExtractor {
         let first_choice : MCTSChoice = self.find_first_node(node_index.clone(),egraph,tree).unwrap();
 
         let mut node = tree[node_index];
+
         // initialize the MCTSNode's decided map and add the MCTSChoice we chose above
         let mut new_decided : FxHashMap<ClassId, NodeId> = node.decided_classes.clone();
         new_decided.insert(first_choice.class.clone(),first_choice.node.clone());
+        
         // initialize a set of e-classes we need to visit
         let mut new_to_visit = node.to_visit.clone();
         // remove the e-class corresponding to the choice made above
