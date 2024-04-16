@@ -26,6 +26,15 @@ const NUM_ITERS: i32 = 100;
 
 pub struct MCTSExtractor;
 impl MCTSExtractor {
+    //helper function
+    fn compute_mcts_tree_size(&self, root: &Box<MCTSNode>) -> i32{
+        let mut sum: i32 = 1;
+        for (_, node) in root.edges.iter(){
+            sum += self.compute_mcts_tree_size(node);
+        }
+        return sum;
+    }
+
     fn mcts(&self, egraph: &EGraph, root: ClassId, num_iters: i32) -> FxHashMap<ClassId, NodeId> {
         let root_node = Box::new(MCTSNode {
             to_visit: HashSet::from([root]),
@@ -50,9 +59,10 @@ impl MCTSExtractor {
         for _ in 0..num_iters {
             let leaf = self.choose_leaf(root_node.clone(), egraph);
             match leaf {
-                Some(node) => {
-                    let (choices, new_node) = self.rollout(node, egraph);
-                    self.backprop(egraph, new_node, choices);
+                Some(mut node) => {
+                    //let (choices, new_node) = self.rollout(node, egraph);
+                    //println!("Tree size: {}",self.compute_mcts_tree_size(&root_node.clone()));
+                    //self.backprop(egraph, new_node, choices);
                 }
                 None => break,
             };
@@ -224,7 +234,10 @@ impl Extractor for MCTSExtractor {
         let mut result = ExtractionResult::default();
         result.choices = IndexMap::new();
         let mcts_results = self.mcts(egraph, roots[0].clone(), NUM_ITERS);
+        let size = roots.len();
+        println!("roots size: {}",size);
         result.choices.extend(mcts_results.into_iter());
+        println!("result size: {}",result.choices.len());
         // for root in roots {
         //     //TODO: multiple roots behavior?
         //     result.choices.extend(self.mcts(egraph, *root, NUM_ITERS).into_iter());
