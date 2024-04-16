@@ -1,6 +1,8 @@
 use indexmap::IndexMap;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::collections::HashMap;
+use std::fmt::Debug;
+use std::path::Path;
 
 pub use crate::*;
 
@@ -80,6 +82,7 @@ impl ExtractionResult {
         }
 
         // No cycles
+        egraph.to_json_file(Path::new("./egraph.json"));
         assert!(self.find_cycles(&egraph, &egraph.root_eclasses).is_empty());
 
         // Nodes should match the class they are selected into.

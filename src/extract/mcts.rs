@@ -65,7 +65,7 @@ impl MCTSExtractor {
                 Some(leaf_index) => {
                     let (choices, new_node_index) = self.rollout(leaf_index, egraph, &mut tree);
                     // println!("Tree size: {}",self.compute_mcts_tree_size(&root_node.clone()));
-                    self.backprop(egraph, new_node_index, choices, &tree);
+                    self.backprop(egraph, new_node_index, choices, &mut tree);
                 }
                 None => break,
             };
@@ -87,9 +87,9 @@ impl MCTSExtractor {
         // if we get here, then all choices are in curr's edges
         // filter edges for ones that are not explored
         let unexplored_children: Vec<usize> = curr_node.edges.values()
-            .map(|i| (i, &tree[i]))
-            .filter(|(i, n)| !n.explored)
-            .map(|(i, _)| i)
+            .map(|i| (i, &tree[*i]))
+            .filter(|(_, n)| !n.explored)
+            .map(|(i, _)| *i)
             .collect();
         // if there are no unexplored children, then we've completely explored the tree
         if unexplored_children.is_empty() { return None }
@@ -102,7 +102,7 @@ impl MCTSExtractor {
         let mut min_cost: f64 = f64::INFINITY;
         let mut max_cost: f64 = f64::NEG_INFINITY;
         for node_index in node_indices.iter() {
-            let node = &tree[node_index];
+            let node = &tree[*node_index];
             min_cost = min_cost.min(node.min_cost);
             max_cost = max_cost.max(node.min_cost)
         }
@@ -110,7 +110,7 @@ impl MCTSExtractor {
         let mut uct_heap: BinaryHeap<(NotNan<f64>, usize)> = BinaryHeap::with_capacity(node_indices.len());
         // For each node, compute uct and insert into heap
         for (i, node_index) in node_indices.iter().enumerate() {
-            let node = &tree[node_index];
+            let node = &tree[*node_index];
             let uct_cost = self.compute_uct(node.min_cost, min_cost, max_cost, node.num_rollouts as f64, parent_num_rollouts as f64);
             uct_heap.push((NotNan::new(uct_cost).unwrap(), i))
         }
@@ -123,7 +123,7 @@ impl MCTSExtractor {
         cost_term + rollout_term
     }
     fn find_first_node(& self, node_index: usize, egraph: & EGraph,tree: &MCTSTree) -> Option<MCTSChoice> {
-        let node = tree[node_index];
+        let node = &tree[node_index];
         for class_id in node.to_visit.iter(){
             for node_id in egraph.classes().get(class_id).unwrap().nodes.iter(){
                 if !node.edges.contains_key(&MCTSChoice { class: (*class_id).clone(), node: (*node_id).clone() }){
@@ -137,14 +137,12 @@ impl MCTSExtractor {
         // get an MCTSChoice to take from the leaf node
         let first_choice : MCTSChoice = self.find_first_node(node_index.clone(),egraph,tree).unwrap();
 
-        let mut node = tree[node_index];
-
         // initialize the MCTSNode's decided map and add the MCTSChoice we chose above
-        let mut new_decided : FxHashMap<ClassId, NodeId> = node.decided_classes.clone();
+        let mut new_decided : FxHashMap<ClassId, NodeId> = tree[node_index].decided_classes.clone();
         new_decided.insert(first_choice.class.clone(),first_choice.node.clone());
         
         // initialize a set of e-classes we need to visit
-        let mut new_to_visit = node.to_visit.clone();
+        let mut new_to_visit = tree[node_index].to_visit.clone();
         // remove the e-class corresponding to the choice made above
         new_to_visit.remove(&first_choice.class);
         // insert the e-classes of the children of the node we chose above
@@ -173,7 +171,7 @@ impl MCTSExtractor {
         });
         let new_node_index = tree.len() - 1;
         // update the leaf node to have an edge pointing to the node we just created
-        node.edges.insert(first_choice.clone(), new_node_index);
+        tree[node_index].edges.insert(first_choice.clone(), new_node_index);
 
         // clone new_to_visit to have a todo list for our rollout
         let mut todo = new_to_visit.clone();
@@ -198,34 +196,33 @@ impl MCTSExtractor {
         return (choices, new_node_index);
     }
 
-    fn backprop(&self, egraph: &EGraph, current_index: usize, mut choices: Box<FxHashMap<ClassId, NodeId>>, tree: &MCTSTree) -> () {
-        let mut current = tree[current_index];
+    fn backprop(&self, egraph: &EGraph, mut current_index: usize, mut choices: Box<FxHashMap<ClassId, NodeId>>, tree: &mut MCTSTree) -> () {
         loop {
             // compute cost
             let choices_cost = self.cost(egraph, choices.clone());
             // update choices & cost of current node
-            if choices_cost < current.min_cost {
-                current.min_cost = choices_cost;
-                current.min_cost_map = (*(choices.clone())).clone();
+            if choices_cost < tree[current_index].min_cost {
+                tree[current_index].min_cost = choices_cost;
+                tree[current_index].min_cost_map = (*(choices.clone())).clone();
             }
             // if we're not at root, update choices
-            if !current.parent_edge.is_none() {
-                let parent = current.parent_edge.unwrap();
+            if !tree[current_index].parent_edge.is_none() {
+                let parent = tree[current_index].parent_edge.clone().unwrap();
                 choices.insert(parent.class, parent.node);
             }
             // if current is a leaf, then it's explored
-            if current.to_visit.len() == 0 {
-                current.explored = true;
+            if tree[current_index].to_visit.len() == 0 {
+                tree[current_index].explored = true;
             }
             // if all current's children are explored, then it's explored
-            if current.edges.values().all(|n| tree[*n].explored) {
-                current.explored = true;
+            if tree[current_index].edges.values().all(|n| tree[*n].explored) {
+                tree[current_index].explored = true;
             }
             // increment current's num_rollouts
-            current.num_rollouts += 1;
-            match current.parent {
+            tree[current_index].num_rollouts += 1;
+            match tree[current_index].parent {
                 None => break,
-                Some (mut n) => current = tree[n]
+                Some (n) => current_index = n
             }
         }
     }
