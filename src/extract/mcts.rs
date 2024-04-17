@@ -78,12 +78,17 @@ impl MCTSExtractor {
     //     return sum;
     // }
 
-    fn mcts(&self, egraph: &EGraph, root: ClassId, num_iters: i64) -> FxHashMap<ClassId, NodeId> {
+    fn mcts(
+        &self,
+        egraph: &EGraph,
+        roots: &[ClassId],
+        num_iters: i64,
+    ) -> FxHashMap<ClassId, NodeId> {
         // initialize the vector which will contain all our nodes
         let mut tree: MCTSTree = Vec::new();
         // initialize the root node of the tree
         tree.push(MCTSNode {
-            to_visit: HashSet::from([root.clone()]),
+            to_visit: HashSet::from_iter(roots.iter().cloned()),
             decided_classes: FxHashMap::<ClassId, NodeId>::with_capacity_and_hasher(
                 egraph.classes().len(),
                 Default::default(),
@@ -124,7 +129,7 @@ impl MCTSExtractor {
                 }
             };
         }
-        pretty_print_tree(&tree, 0, 0);
+        //pretty_print_tree(&tree, 0, 0);
         if j >= num_iters - 1 {
             println!("Timeout");
         }
@@ -423,7 +428,7 @@ impl Extractor for MCTSExtractor {
     fn extract(&self, egraph: &EGraph, roots: &[ClassId]) -> ExtractionResult {
         let mut result = ExtractionResult::default();
         result.choices = IndexMap::new();
-        let mcts_results = self.mcts(egraph, roots[0].clone(), NUM_ITERS);
+        let mcts_results = self.mcts(egraph, roots, NUM_ITERS);
         let size = roots.len();
         let mut vec: Vec<_> = egraph
             .nodes
@@ -440,6 +445,13 @@ impl Extractor for MCTSExtractor {
             .iter()
             .map(|(&ref key, &ref value)| (key, value))
             .collect();
+        if result.choices.is_empty(){
+            let initial_result =
+            super::faster_greedy_dag::FasterGreedyDagExtractor.extract(egraph, roots);
+            log::info!("Unfinished MCTS solution");
+            return initial_result;
+        }
+
         //println!("choices: {:?}",vec);
         //println!("Roots: {:?}",roots);
         //println!("result size: {}",result.choices.len());
