@@ -3,7 +3,7 @@ use rand::seq::SliceRandom;
 use std::collections::{BinaryHeap, HashSet};
 use std::f64::consts::SQRT_2;
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 struct MCTSChoice {
     class: ClassId,
     node: NodeId,
@@ -22,11 +22,50 @@ struct MCTSNode {
 }
 type MCTSTree = Vec<MCTSNode>;
 const EXPLORATION_PARAM: f64 = SQRT_2;
-const NUM_ITERS: i32 = 100000;
+const NUM_ITERS: i64 = 1000;
 
-fn result_dump(choices: &IndexMap<ClassId,NodeId>, egraph:&EGraph) -> (){
+fn result_dump(choices: &IndexMap<ClassId, NodeId>, egraph: &EGraph) -> () {
     println!("Choices: ");
-    println!("{}",choices.iter().map(|(&ref key, &ref val)| format!("{:?}{:?}", key, val)).collect::<Vec<_>>().join("\n"));
+    println!(
+        "{}",
+        choices
+            .iter()
+            .map(|(&ref key, &ref val)| format!("{:?}{:?}", key, val))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+}
+
+fn pretty_print_tree(tree: &MCTSTree, index: usize, indent: usize) {
+    if index >= tree.len() {
+        return;
+    }
+    let node = &tree[index];
+
+    // Print the current node with indentation
+    for _ in 0..indent {
+        print!("  ");
+    }
+    println!(
+        "Node(min_cost: {:.2}, num_rollouts: {}, explored: {}, index: {})",
+        node.min_cost, node.num_rollouts, node.explored, index
+    );
+
+    // Print each edge and its associated choice and child node
+    for (choice, child_index) in &node.edges {
+        for _ in 0..(indent + 1) {
+            print!("  ");
+        }
+        println!("Choice {},{} ", choice.class, choice.node);
+
+        // Recursive call to pretty print child nodes
+        pretty_print_tree(tree, *child_index, indent + 1);
+    }
+
+    for _ in 0..indent {
+        print!("  ");
+    }
+    println!("}}");
 }
 pub struct MCTSExtractor;
 impl MCTSExtractor {
@@ -39,7 +78,7 @@ impl MCTSExtractor {
     //     return sum;
     // }
 
-    fn mcts(&self, egraph: &EGraph, root: ClassId, num_iters: i32) -> FxHashMap<ClassId, NodeId> {
+    fn mcts(&self, egraph: &EGraph, root: ClassId, num_iters: i64) -> FxHashMap<ClassId, NodeId> {
         // initialize the vector which will contain all our nodes
         let mut tree: MCTSTree = Vec::new();
         // initialize the root node of the tree
@@ -49,7 +88,7 @@ impl MCTSExtractor {
                 egraph.classes().len(),
                 Default::default(),
             ),
-            num_rollouts: 0,
+            num_rollouts: 1,
             min_cost: f64::INFINITY,
             min_cost_map: FxHashMap::<ClassId, NodeId>::with_capacity_and_hasher(
                 egraph.classes().len(),
@@ -65,10 +104,12 @@ impl MCTSExtractor {
         });
         let mut j = 0;
         for i in 0..num_iters {
+            println!("{i}");
             j += 1;
             let leaf: Option<usize> = self.choose_leaf(0, egraph, &tree);
             match leaf {
                 Some(leaf_index) => {
+                    println!("Leaf index: {leaf_index}");
                     match self.rollout(leaf_index, egraph, &mut tree) {
                         None => continue,
                         Some((choices, new_node_index)) => {
@@ -83,7 +124,8 @@ impl MCTSExtractor {
                 }
             };
         }
-        if j >= num_iters - 10 {
+        pretty_print_tree(&tree, 0, 0);
+        if j >= num_iters - 1 {
             println!("Timeout");
         }
         return tree[0].min_cost_map.clone();
@@ -177,6 +219,10 @@ impl MCTSExtractor {
     ) -> f64 {
         let cost_term = 1.0 - ((cost - min_cost) / (max_cost - min_cost));
         let rollout_term = EXPLORATION_PARAM * (parent_num_rollouts.ln() / num_rollouts).sqrt();
+        if cost_term.is_nan() || rollout_term.is_nan() {
+            //println!("cost: {cost}, min_cost: {min_cost}, max_cost: {max_cost}, num_rollouts: {num_rollouts}, parent rollouts: {parent_num_rollouts}");
+            return f64::NEG_INFINITY;
+        }
         cost_term + rollout_term
     }
     fn find_first_node(
@@ -257,7 +303,7 @@ impl MCTSExtractor {
         tree.push(MCTSNode {
             to_visit: new_to_visit.clone(),
             decided_classes: new_decided.clone(),
-            num_rollouts: 0,
+            num_rollouts: 1,
             min_cost: f64::INFINITY,
             min_cost_map: FxHashMap::<ClassId, NodeId>::with_capacity_and_hasher(
                 egraph.classes().len(),
@@ -294,8 +340,8 @@ impl MCTSExtractor {
             let node_choice = match eligible_nodes.choose(&mut rand::thread_rng()) {
                 Some(choice) => choice,
                 None => {
-                    tree.remove(new_node_index);
-                    tree[node_index].edges.remove(&first_choice.clone());
+                    //tree.remove(new_node_index);
+                    //tree[node_index].edges.remove(&first_choice.clone());
                     return None;
                 }
             };
@@ -347,7 +393,7 @@ impl MCTSExtractor {
             if tree[current_index]
                 .edges
                 .values()
-                .all(|n| tree[*n].explored)
+                .all(|n| tree[*n].explored) && tree[current_index].edges.len() > 0 && self.find_first_node(current_index, egraph, tree).is_none()
             {
                 tree[current_index].explored = true;
             }
@@ -386,7 +432,7 @@ impl Extractor for MCTSExtractor {
         vec.sort();
         //println!("MCTS, Nodes: {:?}",vec);
         result.choices.extend(mcts_results.into_iter());
-        result_dump(&result.choices, egraph);
+        //result_dump(&result.choices, egraph);
         let vec: Vec<_> = result
             .choices
             .iter()
