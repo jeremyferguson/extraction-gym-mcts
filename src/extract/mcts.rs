@@ -22,7 +22,7 @@ struct MCTSNode {
 }
 type MCTSTree = Vec<MCTSNode>;
 const EXPLORATION_PARAM: f64 = SQRT_2;
-const NUM_ITERS: i32 = 100;
+const NUM_ITERS: i32 = 100000;
 
 pub struct MCTSExtractor;
 impl MCTSExtractor {
@@ -188,12 +188,17 @@ impl MCTSExtractor {
             //randomly choose a class from todo, and a node from the class
             let to_visit_vec : Vec<ClassId> = todo.clone().into_iter().collect();
             let class_choice = to_visit_vec.choose(&mut rand::thread_rng()).unwrap();
-            
             let eligible_nodes = egraph[class_choice].nodes
                 .iter()
                 .filter(|n| !self.is_cycle(egraph,n,&choices.keys().collect::<HashSet<_>>()))
                 .collect::<Vec<_>>();
-            let node_choice = eligible_nodes.choose(&mut rand::thread_rng()).unwrap();
+            let node_choice = match eligible_nodes.choose(&mut rand::thread_rng()) {
+                    Some (choice) => choice,
+                    None => {
+                        egraph.to_json_file(Path::new("./egraph.json"));
+                        panic!("No nodes left to choose from");
+                    }
+                };
             let choice = MCTSChoice { class: (*class_choice).clone(), node: (*node_choice).clone() };
             //add choice to choices and add children of choice to todo
             choices.insert(choice.class.clone(),choice.node.clone());
