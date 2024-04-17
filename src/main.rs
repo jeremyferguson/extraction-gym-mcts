@@ -58,7 +58,7 @@ fn extractors() -> IndexMap<&'static str, ExtractorDetail> {
             "mcts",
             ExtractorDetail {
                 extractor: extract::mcts::MCTSExtractor.boxed(),
-                optimal: Optimal::Neither,
+                optimal: Optimal::DAG,
                 use_for_bench: true,
             },
         ),

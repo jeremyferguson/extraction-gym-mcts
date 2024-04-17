@@ -77,7 +77,8 @@ impl MCTSExtractor {
         // look for a choice not in curr's edges
         let curr_node = &tree[curr];
         for class_id in curr_node.to_visit.iter() {
-            for node_id in egraph.classes().get(class_id).unwrap().nodes.iter() {
+            //let good_nodes :Vec<_> = egraph.classes().get(class_id).unwrap().nodes.iter().filter(|n| self.is_self_cycle(egraph, n)).collect();
+            for node_id in egraph.classes().get(class_id).unwrap().nodes.iter().filter(|n| !self.is_cycle(egraph, n,&curr_node.decided_classes.keys().collect::<HashSet<_>>())) {
                 let choice = MCTSChoice {class: (*class_id).clone(), node: (*node_id).clone()};
                 if !curr_node.edges.contains_key(&choice) {
                     return Some(curr);
@@ -125,13 +126,18 @@ impl MCTSExtractor {
     fn find_first_node(& self, node_index: usize, egraph: & EGraph,tree: &MCTSTree) -> Option<MCTSChoice> {
         let node = &tree[node_index];
         for class_id in node.to_visit.iter(){
-            for node_id in egraph.classes().get(class_id).unwrap().nodes.iter(){
+            for node_id in egraph.classes().get(class_id).unwrap().nodes.iter()
+                .filter(|n|!self.is_cycle(egraph, n,&node.decided_classes.keys().collect::<HashSet<_>>())){
                 if !node.edges.contains_key(&MCTSChoice { class: (*class_id).clone(), node: (*node_id).clone() }){
                     return Some(MCTSChoice { class: (*class_id).clone(), node: (*node_id).clone() });
                 }
             }
         }
         return None;
+    }
+    fn is_cycle(&self, egraph: &EGraph, node_id: &NodeId, decided_classes: &HashSet<&ClassId>) -> bool{
+        egraph[node_id].children.iter().any(|c| *egraph.nid_to_cid(c) == egraph[node_id].eclass ||
+             decided_classes.contains(egraph.nid_to_cid(c)))
     }
     fn rollout(&self, node_index: usize, egraph: &EGraph, tree: &mut MCTSTree) -> (Box<FxHashMap<ClassId, NodeId>>, usize) {
         // get an MCTSChoice to take from the leaf node
@@ -182,12 +188,21 @@ impl MCTSExtractor {
             //randomly choose a class from todo, and a node from the class
             let to_visit_vec : Vec<ClassId> = todo.clone().into_iter().collect();
             let class_choice = to_visit_vec.choose(&mut rand::thread_rng()).unwrap();
-            let node_choice = egraph[class_choice].nodes.choose(&mut rand::thread_rng()).unwrap();
+            
+            let eligible_nodes = egraph[class_choice].nodes
+                .iter()
+                .filter(|n| !self.is_cycle(egraph,n,&choices.keys().collect::<HashSet<_>>()))
+                .collect::<Vec<_>>();
+            let node_choice = eligible_nodes.choose(&mut rand::thread_rng()).unwrap();
             let choice = MCTSChoice { class: (*class_choice).clone(), node: (*node_choice).clone() };
             //add choice to choices and add children of choice to todo
             choices.insert(choice.class.clone(),choice.node.clone());
-            let children = egraph[&choice.node].children.clone().into_iter().map(|n| egraph.nid_to_cid(&n)).filter(
-                |n| !choices.contains_key(n));
+            let children = egraph[&choice.node]
+                .children
+                .clone()
+                .into_iter()
+                .map(|n| egraph.nid_to_cid(&n))
+                .filter(|n| !choices.contains_key(n));
             for child in children{
                 todo.insert(child.clone());
             }
@@ -245,9 +260,14 @@ impl Extractor for MCTSExtractor {
         result.choices = IndexMap::new();
         let mcts_results = self.mcts(egraph, roots[0].clone(), NUM_ITERS);
         let size = roots.len();
-        println!("roots size: {}",size);
+        let mut vec: Vec<_> = egraph.nodes.iter().map(|(&ref key, &ref value)| (key, value.children.clone(), value.eclass.clone())).collect();
+        vec.sort();
+        //println!("MCTS, Nodes: {:?}",vec);
         result.choices.extend(mcts_results.into_iter());
-        println!("result size: {}",result.choices.len());
+        let vec: Vec<_> = result.choices.iter().map(|(&ref key, &ref value)| (key, value)).collect();
+        //println!("choices: {:?}",vec);
+        //println!("Roots: {:?}",roots);
+        //println!("result size: {}",result.choices.len());
         // for root in roots {
         //     //TODO: multiple roots behavior?
         //     result.choices.extend(self.mcts(egraph, *root, NUM_ITERS).into_iter());

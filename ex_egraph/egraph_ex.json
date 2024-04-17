@@ -1,0 +1,1063 @@
+{
+  "nodes": {
+    "node_0": {
+      "op": "operation",
+      "children": [],
+      "eclass": "0",
+      "cost": 92.76604375833172
+    },
+    "node_1": {
+      "op": "operation",
+      "children": [
+        "node_0"
+      ],
+      "eclass": "0",
+      "cost": 74.52384501016527
+    },
+    "node_2": {
+      "op": "operation",
+      "children": [
+        "node_1"
+      ],
+      "eclass": "0",
+      "cost": 56.24473876054882
+    },
+    "node_3": {
+      "op": "operation",
+      "children": [
+        "node_0",
+        "node_1",
+        "node_2"
+      ],
+      "eclass": "1",
+      "cost": 71.35985261158075
+    },
+    "node_4": {
+      "op": "operation",
+      "children": [
+        "node_0",
+        "node_1",
+        "node_2"
+      ],
+      "eclass": "1",
+      "cost": 93.6838157899592
+    },
+    "node_5": {
+      "op": "operation",
+      "children": [
+        "node_1",
+        "node_3",
+        "node_4"
+      ],
+      "eclass": "2",
+      "cost": 56.68054498503543
+    },
+    "node_6": {
+      "op": "operation",
+      "children": [
+        "node_2",
+        "node_3",
+        "node_4"
+      ],
+      "eclass": "3",
+      "cost": 0.0
+    },
+    "node_7": {
+      "op": "operation",
+      "children": [
+        "node_0",
+        "node_1",
+        "node_2",
+        "node_3",
+        "node_4",
+        "node_5",
+        "node_6"
+      ],
+      "eclass": "4",
+      "cost": 8.024560600140552
+    },
+    "node_8": {
+      "op": "operation",
+      "children": [
+        "node_1",
+        "node_2",
+        "node_4",
+        "node_5",
+        "node_7"
+      ],
+      "eclass": "4",
+      "cost": 27.0977086134626
+    },
+    "node_9": {
+      "op": "operation",
+      "children": [
+        "node_1",
+        "node_2",
+        "node_3",
+        "node_4",
+        "node_5",
+        "node_6",
+        "node_7",
+        "node_8"
+      ],
+      "eclass": "4",
+      "cost": 16.221852810848738
+    },
+    "node_10": {
+      "op": "operation",
+      "children": [
+        "node_17",
+        "node_23",
+        "node_25",
+        "node_32",
+        "node_51",
+        "node_58",
+        "node_65",
+        "node_74",
+        "node_78"
+      ],
+      "eclass": "5",
+      "cost": 27.0977086134626
+    },
+    "node_11": {
+      "op": "operation",
+      "children": [
+        "node_9",
+        "node_18",
+        "node_31",
+        "node_58",
+        "node_66",
+        "node_69",
+        "node_73",
+        "node_82"
+      ],
+      "eclass": "0",
+      "cost": 68.151506712171
+    },
+    "node_12": {
+      "op": "operation",
+      "children": [
+        "node_2",
+        "node_24",
+        "node_36",
+        "node_50",
+        "node_52",
+        "node_68"
+      ],
+      "eclass": "5",
+      "cost": 1.5052829370466148
+    },
+    "node_13": {
+      "op": "operation",
+      "children": [
+        "node_1",
+        "node_6",
+        "node_37",
+        "node_59"
+      ],
+      "eclass": "2",
+      "cost": 90.24680694415505
+    },
+    "node_14": {
+      "op": "operation",
+      "children": [
+        "node_25",
+        "node_27",
+        "node_61",
+        "node_62",
+        "node_89"
+      ],
+      "eclass": "8",
+      "cost": 45.2569499100543
+    },
+    "node_15": {
+      "op": "operation",
+      "children": [
+        "node_3",
+        "node_15",
+        "node_18",
+        "node_20"
+      ],
+      "eclass": "5",
+      "cost": 0.0
+    },
+    "node_16": {
+      "op": "operation",
+      "children": [
+        "node_1",
+        "node_61",
+        "node_72",
+        "node_76"
+      ],
+      "eclass": "8",
+      "cost": 56.24473876054882
+    },
+    "node_17": {
+      "op": "operation",
+      "children": [
+        "node_6",
+        "node_12",
+        "node_17",
+        "node_40",
+        "node_54",
+        "node_84"
+      ],
+      "eclass": "4",
+      "cost": 20.51901705674213
+    },
+    "node_18": {
+      "op": "operation",
+      "children": [
+        "node_9",
+        "node_12"
+      ],
+      "eclass": "5",
+      "cost": 7.502095814576981
+    },
+    "node_19": {
+      "op": "operation",
+      "children": [
+        "node_26",
+        "node_46"
+      ],
+      "eclass": "7",
+      "cost": 77.81478882529645
+    },
+    "node_20": {
+      "op": "operation",
+      "children": [
+        "node_2",
+        "node_7",
+        "node_37",
+        "node_52",
+        "node_60",
+        "node_68",
+        "node_77"
+      ],
+      "eclass": "0",
+      "cost": 90.24680694415505
+    },
+    "node_21": {
+      "op": "operation",
+      "children": [
+        "node_6",
+        "node_16",
+        "node_32",
+        "node_35",
+        "node_39",
+        "node_46",
+        "node_68",
+        "node_77"
+      ],
+      "eclass": "1",
+      "cost": 14.513001793615032
+    },
+    "node_22": {
+      "op": "operation",
+      "children": [
+        "node_64",
+        "node_68",
+        "node_76",
+        "node_79",
+        "node_80",
+        "node_85"
+      ],
+      "eclass": "7",
+      "cost": 20.206221771856768
+    },
+    "node_23": {
+      "op": "operation",
+      "children": [
+        "node_27",
+        "node_42",
+        "node_60",
+        "node_77",
+        "node_88"
+      ],
+      "eclass": "1",
+      "cost": 7.964760713449426
+    },
+    "node_24": {
+      "op": "operation",
+      "children": [
+        "node_12",
+        "node_30",
+        "node_43",
+        "node_45"
+      ],
+      "eclass": "0",
+      "cost": 40.358541263593914
+    },
+    "node_25": {
+      "op": "operation",
+      "children": [
+        "node_7",
+        "node_8",
+        "node_11",
+        "node_38",
+        "node_59"
+      ],
+      "eclass": "0",
+      "cost": 97.69579474817046
+    },
+    "node_26": {
+      "op": "operation",
+      "children": [
+        "node_4",
+        "node_14",
+        "node_16",
+        "node_25",
+        "node_31",
+        "node_51",
+        "node_54",
+        "node_60",
+        "node_65",
+        "node_76"
+      ],
+      "eclass": "1",
+      "cost": 6.1122098841216665
+    },
+    "node_27": {
+      "op": "operation",
+      "children": [
+        "node_49",
+        "node_57"
+      ],
+      "eclass": "5",
+      "cost": 82.85375239181293
+    },
+    "node_28": {
+      "op": "operation",
+      "children": [
+        "node_12",
+        "node_78"
+      ],
+      "eclass": "1",
+      "cost": 65.68474009352828
+    },
+    "node_29": {
+      "op": "operation",
+      "children": [
+        "node_2",
+        "node_40",
+        "node_52",
+        "node_88"
+      ],
+      "eclass": "5",
+      "cost": 13.301714312946999
+    },
+    "node_30": {
+      "op": "operation",
+      "children": [
+        "node_4",
+        "node_19",
+        "node_26",
+        "node_42",
+        "node_58",
+        "node_61",
+        "node_67",
+        "node_86"
+      ],
+      "eclass": "8",
+      "cost": 0.0
+    },
+    "node_31": {
+      "op": "operation",
+      "children": [
+        "node_1",
+        "node_12",
+        "node_16",
+        "node_22",
+        "node_25",
+        "node_60",
+        "node_66",
+        "node_71",
+        "node_82",
+        "node_90"
+      ],
+      "eclass": "2",
+      "cost": 6.12926378818729
+    },
+    "node_32": {
+      "op": "operation",
+      "children": [
+        "node_9",
+        "node_14",
+        "node_16",
+        "node_21",
+        "node_22",
+        "node_39",
+        "node_59",
+        "node_78"
+      ],
+      "eclass": "8",
+      "cost": 70.77474680626787
+    },
+    "node_33": {
+      "op": "operation",
+      "children": [
+        "node_12",
+        "node_17",
+        "node_25",
+        "node_30"
+      ],
+      "eclass": "7",
+      "cost": 82.76526713886294
+    },
+    "node_34": {
+      "op": "operation",
+      "children": [
+        "node_5",
+        "node_32",
+        "node_67",
+        "node_86"
+      ],
+      "eclass": "0",
+      "cost": 12.78073418323704
+    },
+    "node_35": {
+      "op": "operation",
+      "children": [
+        "node_31",
+        "node_47",
+        "node_52",
+        "node_56"
+      ],
+      "eclass": "0",
+      "cost": 56.68054498503543
+    },
+    "node_36": {
+      "op": "operation",
+      "children": [
+        "node_37",
+        "node_38",
+        "node_65",
+        "node_75",
+        "node_81",
+        "node_84",
+        "node_86"
+      ],
+      "eclass": "2",
+      "cost": 6.12268688777271
+    },
+    "node_37": {
+      "op": "operation",
+      "children": [
+        "node_44",
+        "node_47",
+        "node_66"
+      ],
+      "eclass": "7",
+      "cost": 24.066158596698926
+    },
+    "node_38": {
+      "op": "operation",
+      "children": [
+        "node_33",
+        "node_36",
+        "node_53",
+        "node_78"
+      ],
+      "eclass": "2",
+      "cost": 7.805348226657605
+    },
+    "node_39": {
+      "op": "operation",
+      "children": [
+        "node_54"
+      ],
+      "eclass": "1",
+      "cost": 1.5052829370466148
+    },
+    "node_40": {
+      "op": "operation",
+      "children": [
+        "node_30",
+        "node_46",
+        "node_56",
+        "node_68"
+      ],
+      "eclass": "3",
+      "cost": 56.80240270636754
+    },
+    "node_41": {
+      "op": "operation",
+      "children": [
+        "node_13",
+        "node_14",
+        "node_49",
+        "node_88"
+      ],
+      "eclass": "6",
+      "cost": 95.50855359805036
+    },
+    "node_42": {
+      "op": "operation",
+      "children": [
+        "node_13",
+        "node_26",
+        "node_41",
+        "node_53",
+        "node_66"
+      ],
+      "eclass": "7",
+      "cost": 18.65586075180694
+    },
+    "node_43": {
+      "op": "operation",
+      "children": [
+        "node_9",
+        "node_39",
+        "node_43",
+        "node_49",
+        "node_57",
+        "node_64"
+      ],
+      "eclass": "0",
+      "cost": 14.513001793615032
+    },
+    "node_44": {
+      "op": "operation",
+      "children": [
+        "node_11",
+        "node_48",
+        "node_77"
+      ],
+      "eclass": "1",
+      "cost": 19.719841089685975
+    },
+    "node_45": {
+      "op": "operation",
+      "children": [
+        "node_9",
+        "node_23",
+        "node_30",
+        "node_34",
+        "node_57",
+        "node_61",
+        "node_64"
+      ],
+      "eclass": "3",
+      "cost": 22.57515179418661
+    },
+    "node_46": {
+      "op": "operation",
+      "children": [
+        "node_13",
+        "node_31",
+        "node_64",
+        "node_65",
+        "node_66",
+        "node_70",
+        "node_76"
+      ],
+      "eclass": "8",
+      "cost": 99.32142666428913
+    },
+    "node_47": {
+      "op": "operation",
+      "children": [
+        "node_35",
+        "node_43",
+        "node_51",
+        "node_79"
+      ],
+      "eclass": "1",
+      "cost": 18.398621519345514
+    },
+    "node_48": {
+      "op": "operation",
+      "children": [
+        "node_31",
+        "node_44",
+        "node_77"
+      ],
+      "eclass": "3",
+      "cost": 3.087644501150766
+    },
+    "node_49": {
+      "op": "operation",
+      "children": [
+        "node_4",
+        "node_14",
+        "node_39",
+        "node_71"
+      ],
+      "eclass": "2",
+      "cost": 91.6113526686398
+    },
+    "node_50": {
+      "op": "operation",
+      "children": [
+        "node_7",
+        "node_15",
+        "node_25",
+        "node_33",
+        "node_69"
+      ],
+      "eclass": "8",
+      "cost": 38.93107238523407
+    },
+    "node_51": {
+      "op": "operation",
+      "children": [
+        "node_42",
+        "node_53"
+      ],
+      "eclass": "7",
+      "cost": 46.21338498173074
+    },
+    "node_52": {
+      "op": "operation",
+      "children": [
+        "node_16",
+        "node_18",
+        "node_22",
+        "node_55"
+      ],
+      "eclass": "1",
+      "cost": 30.597677332545537
+    },
+    "node_53": {
+      "op": "operation",
+      "children": [
+        "node_4",
+        "node_19",
+        "node_54",
+        "node_55"
+      ],
+      "eclass": "1",
+      "cost": 51.95331900291773
+    },
+    "node_54": {
+      "op": "operation",
+      "children": [
+        "node_14",
+        "node_17",
+        "node_56"
+      ],
+      "eclass": "7",
+      "cost": 96.15925570948872
+    },
+    "node_55": {
+      "op": "operation",
+      "children": [
+        "node_28",
+        "node_36"
+      ],
+      "eclass": "0",
+      "cost": 0.0
+    },
+    "node_56": {
+      "op": "operation",
+      "children": [
+        "node_16",
+        "node_20",
+        "node_22",
+        "node_26",
+        "node_48",
+        "node_49"
+      ],
+      "eclass": "1",
+      "cost": 90.70694834183676
+    },
+    "node_57": {
+      "op": "operation",
+      "children": [
+        "node_4",
+        "node_11",
+        "node_66"
+      ],
+      "eclass": "2",
+      "cost": 4.463910801795812
+    },
+    "node_58": {
+      "op": "operation",
+      "children": [
+        "node_19",
+        "node_41",
+        "node_46",
+        "node_48",
+        "node_65",
+        "node_84"
+      ],
+      "eclass": "0",
+      "cost": 98.50963727126576
+    },
+    "node_59": {
+      "op": "operation",
+      "children": [
+        "node_13",
+        "node_39",
+        "node_43",
+        "node_48",
+        "node_55"
+      ],
+      "eclass": "2",
+      "cost": 62.18554723887014
+    },
+    "node_60": {
+      "op": "operation",
+      "children": [
+        "node_2",
+        "node_20",
+        "node_47",
+        "node_74",
+        "node_84"
+      ],
+      "eclass": "7",
+      "cost": 88.48419426936466
+    },
+    "node_61": {
+      "op": "operation",
+      "children": [
+        "node_5",
+        "node_29",
+        "node_35",
+        "node_60"
+      ],
+      "eclass": "5",
+      "cost": 30.597677332545537
+    },
+    "node_62": {
+      "op": "operation",
+      "children": [
+        "node_5",
+        "node_9",
+        "node_14",
+        "node_42",
+        "node_47",
+        "node_54"
+      ],
+      "eclass": "5",
+      "cost": 21.206722607933315
+    },
+    "node_63": {
+      "op": "operation",
+      "children": [
+        "node_15",
+        "node_31",
+        "node_69"
+      ],
+      "eclass": "1",
+      "cost": 29.079004338946422
+    },
+    "node_64": {
+      "op": "operation",
+      "children": [
+        "node_25",
+        "node_61",
+        "node_81",
+        "node_85"
+      ],
+      "eclass": "3",
+      "cost": 71.78822378544048
+    },
+    "node_65": {
+      "op": "operation",
+      "children": [
+        "node_3",
+        "node_8",
+        "node_36",
+        "node_43",
+        "node_62",
+        "node_82"
+      ],
+      "eclass": "7",
+      "cost": 12.567067388336174
+    },
+    "node_66": {
+      "op": "operation",
+      "children": [
+        "node_13",
+        "node_15",
+        "node_33",
+        "node_76"
+      ],
+      "eclass": "8",
+      "cost": 62.02390842284935
+    },
+    "node_67": {
+      "op": "operation",
+      "children": [
+        "node_12",
+        "node_24",
+        "node_34",
+        "node_44",
+        "node_55"
+      ],
+      "eclass": "2",
+      "cost": 95.45719109388267
+    },
+    "node_68": {
+      "op": "operation",
+      "children": [
+        "node_21",
+        "node_23",
+        "node_50",
+        "node_76"
+      ],
+      "eclass": "8",
+      "cost": 31.2332281250706
+    },
+    "node_69": {
+      "op": "operation",
+      "children": [
+        "node_11"
+      ],
+      "eclass": "8",
+      "cost": 57.70915530705032
+    },
+    "node_70": {
+      "op": "operation",
+      "children": [
+        "node_19",
+        "node_30",
+        "node_61",
+        "node_64",
+        "node_84"
+      ],
+      "eclass": "6",
+      "cost": 18.398621519345514
+    },
+    "node_71": {
+      "op": "operation",
+      "children": [
+        "node_9",
+        "node_14",
+        "node_51",
+        "node_66",
+        "node_68"
+      ],
+      "eclass": "3",
+      "cost": 9.375917132141243
+    },
+    "node_72": {
+      "op": "operation",
+      "children": [
+        "node_25",
+        "node_62"
+      ],
+      "eclass": "8",
+      "cost": 20.51901705674213
+    },
+    "node_73": {
+      "op": "operation",
+      "children": [
+        "node_53",
+        "node_89"
+      ],
+      "eclass": "3",
+      "cost": 49.139705249452994
+    },
+    "node_74": {
+      "op": "operation",
+      "children": [
+        "node_23",
+        "node_45",
+        "node_64",
+        "node_72",
+        "node_81"
+      ],
+      "eclass": "0",
+      "cost": 79.19688274061366
+    },
+    "node_75": {
+      "op": "operation",
+      "children": [
+        "node_15",
+        "node_21",
+        "node_23",
+        "node_44",
+        "node_52",
+        "node_71",
+        "node_76",
+        "node_80",
+        "node_81",
+        "node_84",
+        "node_86"
+      ],
+      "eclass": "1",
+      "cost": 32.16318868887051
+    },
+    "node_76": {
+      "op": "operation",
+      "children": [
+        "node_19",
+        "node_63",
+        "node_82"
+      ],
+      "eclass": "5",
+      "cost": 58.340594801344835
+    },
+    "node_77": {
+      "op": "operation",
+      "children": [
+        "node_2",
+        "node_14",
+        "node_17",
+        "node_26",
+        "node_60",
+        "node_71",
+        "node_79",
+        "node_89"
+      ],
+      "eclass": "5",
+      "cost": 84.79654877920257
+    },
+    "node_78": {
+      "op": "operation",
+      "children": [
+        "node_10",
+        "node_53",
+        "node_54",
+        "node_58",
+        "node_69"
+      ],
+      "eclass": "6",
+      "cost": 27.648841218896834
+    },
+    "node_79": {
+      "op": "operation",
+      "children": [
+        "node_32",
+        "node_45",
+        "node_46",
+        "node_64",
+        "node_69",
+        "node_72",
+        "node_81",
+        "node_86"
+      ],
+      "eclass": "0",
+      "cost": 99.03566112687326
+    },
+    "node_80": {
+      "op": "operation",
+      "children": [
+        "node_12",
+        "node_34",
+        "node_35",
+        "node_48",
+        "node_66",
+        "node_76"
+      ],
+      "eclass": "6",
+      "cost": 73.45743287655661
+    },
+    "node_81": {
+      "op": "operation",
+      "children": [
+        "node_27",
+        "node_88"
+      ],
+      "eclass": "3",
+      "cost": 62.998114224991156
+    },
+    "node_82": {
+      "op": "operation",
+      "children": [
+        "node_23",
+        "node_39"
+      ],
+      "eclass": "3",
+      "cost": 29.030842783489817
+    },
+    "node_83": {
+      "op": "operation",
+      "children": [
+        "node_11",
+        "node_14",
+        "node_67",
+        "node_88",
+        "node_90"
+      ],
+      "eclass": "7",
+      "cost": 11.190512118732975
+    },
+    "node_84": {
+      "op": "operation",
+      "children": [
+        "node_7",
+        "node_31",
+        "node_50",
+        "node_56",
+        "node_80",
+        "node_81"
+      ],
+      "eclass": "8",
+      "cost": 32.71385593032665
+    },
+    "node_85": {
+      "op": "operation",
+      "children": [
+        "node_24",
+        "node_46",
+        "node_47",
+        "node_57",
+        "node_61",
+        "node_80"
+      ],
+      "eclass": "6",
+      "cost": 56.91045643388246
+    },
+    "node_86": {
+      "op": "operation",
+      "children": [
+        "node_26",
+        "node_56",
+        "node_63"
+      ],
+      "eclass": "3",
+      "cost": 17.10652836626714
+    },
+    "node_87": {
+      "op": "operation",
+      "children": [
+        "node_2",
+        "node_10",
+        "node_38",
+        "node_54",
+        "node_58"
+      ],
+      "eclass": "1",
+      "cost": 0.5295608323860446
+    },
+    "node_88": {
+      "op": "operation",
+      "children": [
+        "node_0",
+        "node_10",
+        "node_35",
+        "node_51",
+        "node_85"
+      ],
+      "eclass": "7",
+      "cost": 58.97325856014606
+    },
+    "node_89": {
+      "op": "operation",
+      "children": [
+        "node_53",
+        "node_63",
+        "node_76"
+      ],
+      "eclass": "4",
+      "cost": 97.78316776776046
+    },
+    "node_90": {
+      "op": "operation",
+      "children": [
+        "node_16",
+        "node_43",
+        "node_81"
+      ],
+      "eclass": "1",
+      "cost": 0.0
+    }
+  },
+  "root_eclasses": [
+    "4"
+  ],
+  "class_data": {}
+}

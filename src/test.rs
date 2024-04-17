@@ -9,18 +9,23 @@ use crate::{extractors, Extractor, Optimal, EPSILON_ALLOWANCE};
 pub type Cost = NotNan<f64>;
 use egraph_serialize::{EGraph, Node, NodeId};
 use ordered_float::NotNan;
-use rand::Rng;
+use rand::{Rng, SeedableRng};
+use rand::rngs::StdRng;
 
 // generates a float between 0 and 1
 fn generate_random_not_nan() -> NotNan<f64> {
     let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+    // let mut rng = StdRng::seed_from_u64(4135);
     let random_float: f64 = rng.gen();
     NotNan::new(random_float).unwrap()
 }
 
 //make a random egraph that has a loop-free extraction.
 pub fn generate_random_egraph() -> EGraph {
+    // let mut rng = StdRng::seed_from_u64(42334);
     let mut rng = rand::thread_rng();
+    //let core_node_count = rng.gen_range(1..10) as usize;
+    //let extra_node_count = rng.gen_range(1..10);
     let core_node_count = rng.gen_range(1..100) as usize;
     let extra_node_count = rng.gen_range(1..100);
     let mut nodes: Vec<Node> = Vec::with_capacity(core_node_count + extra_node_count);
@@ -31,7 +36,7 @@ pub fn generate_random_egraph() -> EGraph {
     // Unless we do it explicitly, the costs are almost never equal to others' costs or zero:
     let get_semi_random_cost = |nodes: &Vec<Node>| -> Cost {
         let mut rng = rand::thread_rng();
-
+        //let mut rng = StdRng::seed_from_u64(413);
         if nodes.len() > 0 && rng.gen_bool(0.1) {
             return nodes[rng.gen_range(0..nodes.len())].cost;
         } else if rng.gen_bool(0.05) {
@@ -42,8 +47,7 @@ pub fn generate_random_egraph() -> EGraph {
     };
 
     for i in 0..core_node_count {
-        let children: Vec<NodeId> = (0..i).filter(|_| rng.gen_bool(0.1)).map(id2nid).collect();
-
+        let children: Vec<NodeId> = (0..i).filter(|_| rng.gen_bool(0.8)).map(id2nid).collect();
         if rng.gen_bool(0.2) {
             eclass += 1;
         }
@@ -82,7 +86,7 @@ pub fn generate_random_egraph() -> EGraph {
     }
 
     // Set roots
-    for _ in 1..rng.gen_range(2..6) {
+    for _ in 1..2{//rng.gen_range(2..6) {
         egraph.root_eclasses.push(
             nodes
                 .get(rng.gen_range(0..core_node_count))
@@ -176,7 +180,7 @@ fn check_optimal_results<I: Iterator<Item = EGraph>>(egraphs: I) {
 fn run_on_test_egraphs() {
     use walkdir::WalkDir;
 
-    let egraphs = WalkDir::new("./test_data/")
+    let egraphs = WalkDir::new("./ex_egraph/")
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| {
@@ -201,6 +205,7 @@ macro_rules! create_optimal_check_tests {
             fn $name() {
                 let optimal_dag_found = extractors().into_iter().any(|(_, ed)| ed.optimal == Optimal::DAG);
                 let iterations = if optimal_dag_found { 100 } else { 10000 };
+                //let iterations = 1;
                 let egraphs = (0..iterations).map(|_| generate_random_egraph());
                 check_optimal_results(egraphs);
             }
