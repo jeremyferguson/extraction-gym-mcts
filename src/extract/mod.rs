@@ -93,7 +93,7 @@ impl ExtractionResult {
         //println!("Choices: {:?}",self.choices);
         //println!("{}",self.dag_cost(&egraph, &egraph.root_eclasses));
         //egraph.to_json_file(Path::new("./egraph.json"));
-        // }
+        //}
         //     
         //     // use egraph_serialize::*;
         //     // let egraph = EGraph::from_json_file("./egraph.json").unwrap();

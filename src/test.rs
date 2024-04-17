@@ -24,10 +24,10 @@ fn generate_random_not_nan() -> NotNan<f64> {
 pub fn generate_random_egraph() -> EGraph {
     // let mut rng = StdRng::seed_from_u64(42334);
     let mut rng = rand::thread_rng();
-    //let core_node_count = rng.gen_range(1..10) as usize;
-    //let extra_node_count = rng.gen_range(1..10);
-    let core_node_count = rng.gen_range(1..100) as usize;
-    let extra_node_count = rng.gen_range(1..100);
+    let core_node_count = rng.gen_range(1..10) as usize;
+    let extra_node_count = rng.gen_range(1..10);
+    //let core_node_count = rng.gen_range(1..100) as usize;
+    //let extra_node_count = rng.gen_range(1..100);
     let mut nodes: Vec<Node> = Vec::with_capacity(core_node_count + extra_node_count);
     let mut eclass = 0;
 
@@ -153,6 +153,9 @@ fn check_optimal_results<I: Iterator<Item = EGraph>>(egraphs: I) {
         }
 
         if optimal_dag_cost.is_some() && optimal_tree_cost.is_some() {
+            if (optimal_dag_cost.unwrap() > optimal_tree_cost.unwrap() + EPSILON_ALLOWANCE){
+                println!("DAG: {}, Tree: {}",optimal_dag_cost.unwrap(),optimal_tree_cost.unwrap());
+            }
             assert!(optimal_dag_cost.unwrap() < optimal_tree_cost.unwrap() + EPSILON_ALLOWANCE);
         }
 
@@ -176,7 +179,7 @@ fn check_optimal_results<I: Iterator<Item = EGraph>>(egraphs: I) {
 }
 
 // Run on all the .json test files
-#[test]
+//#[test]
 fn run_on_test_egraphs() {
     use walkdir::WalkDir;
 

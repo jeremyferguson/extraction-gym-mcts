@@ -63,9 +63,13 @@ impl MCTSExtractor {
             let leaf: Option<usize> = self.choose_leaf(0, egraph, &tree);
             match leaf {
                 Some(leaf_index) => {
-                    let (choices, new_node_index) = self.rollout(leaf_index, egraph, &mut tree);
+                    match self.rollout(leaf_index, egraph, &mut tree){
+                        None => continue,
+                        Some ((choices, new_node_index)) =>
+                         self.backprop(egraph, new_node_index, choices, &mut tree)
+                    }
                     // println!("Tree size: {}",self.compute_mcts_tree_size(&root_node.clone()));
-                    self.backprop(egraph, new_node_index, choices, &mut tree);
+                    
                 }
                 None => break,
             };
@@ -139,7 +143,7 @@ impl MCTSExtractor {
         egraph[node_id].children.iter().any(|c| *egraph.nid_to_cid(c) == egraph[node_id].eclass ||
              decided_classes.contains(egraph.nid_to_cid(c)))
     }
-    fn rollout(&self, node_index: usize, egraph: &EGraph, tree: &mut MCTSTree) -> (Box<FxHashMap<ClassId, NodeId>>, usize) {
+    fn rollout(&self, node_index: usize, egraph: &EGraph, tree: &mut MCTSTree) -> Option<(Box<FxHashMap<ClassId, NodeId>>, usize)> {
         // get an MCTSChoice to take from the leaf node
         let first_choice : MCTSChoice = self.find_first_node(node_index.clone(),egraph,tree).unwrap();
 
@@ -195,8 +199,9 @@ impl MCTSExtractor {
             let node_choice = match eligible_nodes.choose(&mut rand::thread_rng()) {
                     Some (choice) => choice,
                     None => {
-                        egraph.to_json_file(Path::new("./egraph.json"));
-                        panic!("No nodes left to choose from");
+                        tree.remove(new_node_index);
+                        tree[node_index].edges.remove(&first_choice.clone());
+                        return None;
                     }
                 };
             let choice = MCTSChoice { class: (*class_choice).clone(), node: (*node_choice).clone() };
@@ -213,7 +218,7 @@ impl MCTSExtractor {
             }
             todo.remove(&choice.class);
         }
-        return (choices, new_node_index);
+        return Some((choices, new_node_index));
     }
 
     fn backprop(&self, egraph: &EGraph, mut current_index: usize, mut choices: Box<FxHashMap<ClassId, NodeId>>, tree: &mut MCTSTree) -> () {
