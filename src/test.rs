@@ -6,11 +6,13 @@
 use super::*;
 
 use crate::{extractors, Extractor, Optimal, EPSILON_ALLOWANCE};
+use std::any::{type_name, type_name_of_val};
+use std::path::Path;
 pub type Cost = NotNan<f64>;
 use egraph_serialize::{EGraph, Node, NodeId};
 use ordered_float::NotNan;
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 
 // generates a float between 0 and 1
 fn generate_random_not_nan() -> NotNan<f64> {
@@ -86,7 +88,8 @@ pub fn generate_random_egraph() -> EGraph {
     }
 
     // Set roots
-    for _ in 1..2{//rng.gen_range(2..6) {
+    for _ in 1..2 {
+        //rng.gen_range(2..6) {
         egraph.root_eclasses.push(
             nodes
                 .get(rng.gen_range(0..core_node_count))
@@ -98,7 +101,32 @@ pub fn generate_random_egraph() -> EGraph {
 
     egraph
 }
-
+fn result_dump(choices: &IndexMap<ClassId, NodeId>, egraph: &EGraph) -> () {
+    println!("Choices: ");
+    println!(
+        "{}",
+        choices
+            .iter()
+            .map(|(&ref key, &ref val)| format!("{:?}{:?}", key, val))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+}
+fn dump_egraph(egraph: &EGraph) -> () {
+    println!(
+        "Nodes: {}",
+        egraph
+            .nodes
+            .iter()
+            .map(|(&ref id, &ref node)| format!(
+                "{id}: children: {:?} cost: {:.2} class: {}",
+                node.children, node.cost, node.eclass
+            ))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+    println!("Roots: {:?}", egraph.root_eclasses);
+}
 fn check_optimal_results<I: Iterator<Item = EGraph>>(egraphs: I) {
     let mut optimal_dag: Vec<Box<dyn Extractor>> = Default::default();
     let mut optimal_tree: Vec<Box<dyn Extractor>> = Default::default();
@@ -114,7 +142,7 @@ fn check_optimal_results<I: Iterator<Item = EGraph>>(egraphs: I) {
 
     for egraph in egraphs {
         let mut optimal_dag_cost: Option<Cost> = None;
-
+        let mut optimal_dag_choices: IndexMap<ClassId, NodeId> = IndexMap::new();
         for e in &optimal_dag {
             let extract = e.extract(&egraph, &egraph.root_eclasses);
             extract.check(&egraph);
@@ -122,9 +150,24 @@ fn check_optimal_results<I: Iterator<Item = EGraph>>(egraphs: I) {
             let tree_cost = extract.tree_cost(&egraph, &egraph.root_eclasses);
             if optimal_dag_cost.is_none() {
                 optimal_dag_cost = Some(dag_cost);
+                optimal_dag_choices = extract.choices.clone();
                 continue;
             }
-
+            if (dag_cost.into_inner() - optimal_dag_cost.unwrap().into_inner()).abs()
+                > EPSILON_ALLOWANCE
+            {
+                let dag_choices = &extract.choices;
+                println!(
+                    "Costs: {} {}",
+                    dag_cost.into_inner(),
+                    optimal_dag_cost.unwrap().into_inner()
+                );
+                egraph.to_json_file(Path::new("./egraph.json"));
+                result_dump(dag_choices, &egraph);
+                result_dump(&optimal_dag_choices, &egraph);
+                dump_egraph(&egraph);
+                //println!("Nodes: {:#?}",egraph.nodes);
+            }
             assert!(
                 (dag_cost.into_inner() - optimal_dag_cost.unwrap().into_inner()).abs()
                     < EPSILON_ALLOWANCE
@@ -153,15 +196,18 @@ fn check_optimal_results<I: Iterator<Item = EGraph>>(egraphs: I) {
         }
 
         if optimal_dag_cost.is_some() && optimal_tree_cost.is_some() {
-            if (optimal_dag_cost.unwrap() > optimal_tree_cost.unwrap() + EPSILON_ALLOWANCE){
-                println!("DAG: {}, Tree: {}",optimal_dag_cost.unwrap(),optimal_tree_cost.unwrap());
+            if (optimal_dag_cost.unwrap() > optimal_tree_cost.unwrap() + EPSILON_ALLOWANCE) {
+                println!(
+                    "DAG: {}, Tree: {}",
+                    optimal_dag_cost.unwrap(),
+                    optimal_tree_cost.unwrap()
+                );
             }
             assert!(optimal_dag_cost.unwrap() < optimal_tree_cost.unwrap() + EPSILON_ALLOWANCE);
         }
-
+        //println!("{:?}",optimal_tree_cost);
         for e in &others {
             let extract = e.extract(&egraph, &egraph.root_eclasses);
-            extract.check(&egraph);
             let tree_cost = extract.tree_cost(&egraph, &egraph.root_eclasses);
             let dag_cost = extract.dag_cost(&egraph, &egraph.root_eclasses);
 
@@ -179,11 +225,11 @@ fn check_optimal_results<I: Iterator<Item = EGraph>>(egraphs: I) {
 }
 
 // Run on all the .json test files
-//#[test]
+#[test]
 fn run_on_test_egraphs() {
     use walkdir::WalkDir;
 
-    let egraphs = WalkDir::new("./ex_egraph/")
+    let egraphs = WalkDir::new("/test_data/")
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| {

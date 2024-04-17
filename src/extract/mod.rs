@@ -78,13 +78,20 @@ impl ExtractionResult {
 
         // All roots should be selected.
         for cid in egraph.root_eclasses.iter() {
+            if !self.choices.contains_key(cid) {
+                println!("Choices: {:?}, root id: {cid}", self.choices);
+            }
             assert!(self.choices.contains_key(cid));
         }
 
         // No cycles
         //println!("Classes: {}",egraph.classes().len());
-        let vec: Vec<_> = egraph.nodes.iter().map(|(&ref key, &ref value)| (key, value.children.clone(), value.eclass.clone())).collect();
-        let cycles = self.find_cycles(&egraph, &egraph.root_eclasses);
+        let vec: Vec<_> = egraph
+            .nodes
+            .iter()
+            .map(|(&ref key, &ref value)| (key, value.children.clone(), value.eclass.clone()))
+            .collect();
+        //let cycles = self.find_cycles(&egraph, &egraph.root_eclasses);
         //if (!self.find_cycles(&egraph, &egraph.root_eclasses).is_empty()){
         //println!("Cycles: {:?}",cycles);
         //println!("Nodes: {:?}",vec);
@@ -94,7 +101,7 @@ impl ExtractionResult {
         //println!("{}",self.dag_cost(&egraph, &egraph.root_eclasses));
         //egraph.to_json_file(Path::new("./egraph.json"));
         //}
-        //     
+        //
         //     // use egraph_serialize::*;
         //     // let egraph = EGraph::from_json_file("./egraph.json").unwrap();
         // }
