@@ -25,7 +25,7 @@ const EXPLORATION_PARAM: f64 = SQRT_2;
 const NUM_ITERS: i64 = 1000;
 
 fn result_dump(choices: &IndexMap<ClassId, NodeId>, egraph: &EGraph) -> () {
-    println!("Choices: ");
+    println!("MCTS Choices: ");
     println!(
         "{}",
         choices
@@ -83,7 +83,7 @@ impl MCTSExtractor {
         let mut tree: MCTSTree = Vec::new();
         // initialize the root node of the tree
         tree.push(MCTSNode {
-            to_visit: HashSet::from([root]),
+            to_visit: HashSet::from([root.clone()]),
             decided_classes: FxHashMap::<ClassId, NodeId>::with_capacity_and_hasher(
                 egraph.classes().len(),
                 Default::default(),
@@ -104,12 +104,12 @@ impl MCTSExtractor {
         });
         let mut j = 0;
         for i in 0..num_iters {
-            println!("{i}");
+            //println!("{i}");
             j += 1;
             let leaf: Option<usize> = self.choose_leaf(0, egraph, &tree);
             match leaf {
                 Some(leaf_index) => {
-                    println!("Leaf index: {leaf_index}");
+                    //println!("Leaf index: {leaf_index}");
                     match self.rollout(leaf_index, egraph, &mut tree) {
                         None => continue,
                         Some((choices, new_node_index)) => {
@@ -136,19 +136,14 @@ impl MCTSExtractor {
         let curr_node = &tree[curr];
         for class_id in curr_node.to_visit.iter() {
             //let good_nodes :Vec<_> = egraph.classes().get(class_id).unwrap().nodes.iter().filter(|n| self.is_self_cycle(egraph, n)).collect();
-            for node_id in egraph
-                .classes()
-                .get(class_id)
-                .unwrap()
-                .nodes
-                .iter()
-                .filter(|n| {
-                    !self.is_cycle(
-                        egraph,
-                        n,
-                        &curr_node.decided_classes.keys().collect::<HashSet<_>>(),
-                    )
-                })
+            for node_id in egraph.classes().get(class_id).unwrap().nodes.iter()
+            // .filter(|n| {
+            //     !self.is_cycle(
+            //         egraph,
+            //         n,
+            //         &curr_node.decided_classes.keys().collect::<HashSet<_>>(),
+            //     )
+            // })
             {
                 let choice = MCTSChoice {
                     class: (*class_id).clone(),
@@ -233,19 +228,14 @@ impl MCTSExtractor {
     ) -> Option<MCTSChoice> {
         let node = &tree[node_index];
         for class_id in node.to_visit.iter() {
-            for node_id in egraph
-                .classes()
-                .get(class_id)
-                .unwrap()
-                .nodes
-                .iter()
-                .filter(|n| {
-                    !self.is_cycle(
-                        egraph,
-                        n,
-                        &node.decided_classes.keys().collect::<HashSet<_>>(),
-                    )
-                })
+            for node_id in egraph.classes().get(class_id).unwrap().nodes.iter()
+            // .filter(|n| {
+            //     !self.is_cycle(
+            //         egraph,
+            //         n,
+            //         &node.decided_classes.keys().collect::<HashSet<_>>(),
+            //     )
+            // })
             {
                 if !node.edges.contains_key(&MCTSChoice {
                     class: (*class_id).clone(),
@@ -303,7 +293,7 @@ impl MCTSExtractor {
         tree.push(MCTSNode {
             to_visit: new_to_visit.clone(),
             decided_classes: new_decided.clone(),
-            num_rollouts: 1,
+            num_rollouts: 0,
             min_cost: f64::INFINITY,
             min_cost_map: FxHashMap::<ClassId, NodeId>::with_capacity_and_hasher(
                 egraph.classes().len(),
@@ -335,7 +325,7 @@ impl MCTSExtractor {
             let eligible_nodes = egraph[class_choice]
                 .nodes
                 .iter()
-                .filter(|n| !self.is_cycle(egraph, n, &choices.keys().collect::<HashSet<_>>()))
+                //.filter(|n| !self.is_cycle(egraph, n, &choices.keys().collect::<HashSet<_>>()))
                 .collect::<Vec<_>>();
             let node_choice = match eligible_nodes.choose(&mut rand::thread_rng()) {
                 Some(choice) => choice,
@@ -393,7 +383,9 @@ impl MCTSExtractor {
             if tree[current_index]
                 .edges
                 .values()
-                .all(|n| tree[*n].explored) && tree[current_index].edges.len() > 0 && self.find_first_node(current_index, egraph, tree).is_none()
+                .all(|n| tree[*n].explored)
+                && tree[current_index].edges.len() > 0
+                && self.find_first_node(current_index, egraph, tree).is_none()
             {
                 tree[current_index].explored = true;
             }
@@ -407,6 +399,15 @@ impl MCTSExtractor {
     }
 
     fn cost(&self, egraph: &EGraph, choices: Box<FxHashMap<ClassId, NodeId>>) -> f64 {
+        let mut temp_result = ExtractionResult::default();
+        temp_result.choices = IndexMap::new();
+        temp_result.choices.extend(choices.clone().into_iter());
+        if !temp_result
+            .find_cycles(egraph, &egraph.root_eclasses)
+            .is_empty()
+        {
+            return f64::INFINITY;
+        }
         let mut total_cost: f64 = 0.0;
         for (_, node_id) in choices.iter() {
             let node = egraph.nodes.get(node_id);
@@ -432,7 +433,8 @@ impl Extractor for MCTSExtractor {
         vec.sort();
         //println!("MCTS, Nodes: {:?}",vec);
         result.choices.extend(mcts_results.into_iter());
-        //result_dump(&result.choices, egraph);
+        //print!("MCTS:");
+        result_dump(&result.choices, egraph);
         let vec: Vec<_> = result
             .choices
             .iter()
