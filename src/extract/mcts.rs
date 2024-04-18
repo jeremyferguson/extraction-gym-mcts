@@ -22,7 +22,7 @@ struct MCTSNode {
 }
 type MCTSTree = Vec<MCTSNode>;
 const EXPLORATION_PARAM: f64 = SQRT_2;
-const NUM_ITERS: i64 = 10000;
+const NUM_ITERS: i64 = 50000;
 
 fn result_dump(choices: &IndexMap<ClassId, NodeId>, egraph: &EGraph) -> () {
     println!("MCTS Choices: ");
@@ -69,7 +69,6 @@ fn pretty_print_tree(tree: &MCTSTree, index: usize, indent: usize) {
 }
 pub struct MCTSExtractor;
 impl MCTSExtractor {
-
     fn mcts(
         &self,
         egraph: &EGraph,
@@ -104,14 +103,12 @@ impl MCTSExtractor {
             j += 1;
             let leaf: Option<usize> = self.choose_leaf(0, egraph, &tree);
             match leaf {
-                Some(leaf_index) => {
-                    match self.rollout(leaf_index, egraph, &mut tree) {
-                        None => continue,
-                        Some((choices, new_node_index)) => {
-                            self.backprop(egraph, new_node_index, choices, &mut tree)
-                        }
+                Some(leaf_index) => match self.rollout(leaf_index, egraph, &mut tree) {
+                    None => continue,
+                    Some((choices, new_node_index)) => {
+                        self.backprop(egraph, new_node_index, choices, &mut tree)
                     }
-                }
+                },
                 None => {
                     break;
                 }
@@ -416,9 +413,9 @@ impl Extractor for MCTSExtractor {
         let size = roots.len();
         result.choices.extend(mcts_results.into_iter());
         result_dump(&result.choices, egraph);
-        if result.choices.is_empty(){
+        if result.choices.is_empty() {
             let initial_result =
-            super::faster_greedy_dag::FasterGreedyDagExtractor.extract(egraph, roots);
+                super::faster_greedy_dag::FasterGreedyDagExtractor.extract(egraph, roots);
             log::info!("Unfinished MCTS solution");
             return initial_result;
         }

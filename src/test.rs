@@ -24,10 +24,10 @@ fn generate_random_not_nan() -> NotNan<f64> {
 //make a random egraph that has a loop-free extraction.
 pub fn generate_random_egraph() -> EGraph {
     let mut rng = rand::thread_rng();
-    //let core_node_count = rng.gen_range(1..10) as usize;
-    //let extra_node_count = rng.gen_range(1..10);
-    let core_node_count = rng.gen_range(1..100) as usize;
-    let extra_node_count = rng.gen_range(1..100);
+    let core_node_count = rng.gen_range(1..10) as usize;
+    let extra_node_count = rng.gen_range(1..10);
+    //let core_node_count = rng.gen_range(1..100) as usize;
+    //let extra_node_count = rng.gen_range(1..100);
     let mut nodes: Vec<Node> = Vec::with_capacity(core_node_count + extra_node_count);
     let mut eclass = 0;
 
