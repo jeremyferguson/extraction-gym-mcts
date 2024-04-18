@@ -79,35 +79,18 @@ impl ExtractionResult {
         // All roots should be selected.
         for cid in egraph.root_eclasses.iter() {
             if !self.choices.contains_key(cid) {
-                println!("Choices: {:?}, root id: {cid}", self.choices);
+                println!("Incoming error from missing root node. Current choices: {:?}, root id not found: {cid}", self.choices);
             }
             assert!(self.choices.contains_key(cid));
         }
 
         // No cycles
-        //println!("Classes: {}",egraph.classes().len());
         let vec: Vec<_> = egraph
             .nodes
             .iter()
             .map(|(&ref key, &ref value)| (key, value.children.clone(), value.eclass.clone()))
             .collect();
-        //let cycles = self.find_cycles(&egraph, &egraph.root_eclasses);
-        //if (!self.find_cycles(&egraph, &egraph.root_eclasses).is_empty()){
-        //println!("Cycles: {:?}",cycles);
-        //println!("Nodes: {:?}",vec);
-        //println!("Classes: {:?}",egraph.classes().keys());
-        //println!("Roots: {:?}",egraph.root_eclasses);
-        //println!("Choices: {:?}",self.choices);
-        //println!("{}",self.dag_cost(&egraph, &egraph.root_eclasses));
-        //egraph.to_json_file(Path::new("./egraph.json"));
-        //}
-        //
-        //     // use egraph_serialize::*;
-        //     // let egraph = EGraph::from_json_file("./egraph.json").unwrap();
-        // }
-        //assert!(cycles.is_empty());
         assert!(self.find_cycles(&egraph, &egraph.root_eclasses).is_empty());
-        //println!("No cycles");
         // Nodes should match the class they are selected into.
         for (cid, nid) in &self.choices {
             let node = &egraph[nid];
@@ -151,8 +134,6 @@ impl ExtractionResult {
         status: &mut IndexMap<ClassId, Status>,
         cycles: &mut Vec<ClassId>,
     ) {
-        //let vec: Vec<_> = status.iter().map(|(&ref key, &ref value)| (key, value)).collect();
-        //println!("Current Class: {}, Current status: {:?}",class_id,vec);
         match status.get(class_id).cloned() {
             Some(Status::Done) => (),
             Some(Status::Doing) => cycles.push(class_id.clone()),

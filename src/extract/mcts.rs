@@ -22,7 +22,7 @@ struct MCTSNode {
 }
 type MCTSTree = Vec<MCTSNode>;
 const EXPLORATION_PARAM: f64 = SQRT_2;
-const NUM_ITERS: i64 = 1000;
+const NUM_ITERS: i64 = 10000;
 
 fn result_dump(choices: &IndexMap<ClassId, NodeId>, egraph: &EGraph) -> () {
     println!("MCTS Choices: ");
@@ -69,14 +69,6 @@ fn pretty_print_tree(tree: &MCTSTree, index: usize, indent: usize) {
 }
 pub struct MCTSExtractor;
 impl MCTSExtractor {
-    //helper function
-    // fn compute_mcts_tree_size(&self, root: &Box<MCTSNode>) -> i32{
-    //     let mut sum: i32 = 1;
-    //     for (_, node) in root.edges.iter(){
-    //         sum += self.compute_mcts_tree_size(node);
-    //     }
-    //     return sum;
-    // }
 
     fn mcts(
         &self,
@@ -109,22 +101,18 @@ impl MCTSExtractor {
         });
         let mut j = 0;
         for i in 0..num_iters {
-            //println!("{i}");
             j += 1;
             let leaf: Option<usize> = self.choose_leaf(0, egraph, &tree);
             match leaf {
                 Some(leaf_index) => {
-                    //println!("Leaf index: {leaf_index}");
                     match self.rollout(leaf_index, egraph, &mut tree) {
                         None => continue,
                         Some((choices, new_node_index)) => {
                             self.backprop(egraph, new_node_index, choices, &mut tree)
                         }
                     }
-                    // println!("Tree size: {}",self.compute_mcts_tree_size(&root_node.clone()));
                 }
                 None => {
-                    //println!("{i}");
                     break;
                 }
             };
@@ -140,7 +128,6 @@ impl MCTSExtractor {
         // look for a choice not in curr's edges
         let curr_node = &tree[curr];
         for class_id in curr_node.to_visit.iter() {
-            //let good_nodes :Vec<_> = egraph.classes().get(class_id).unwrap().nodes.iter().filter(|n| self.is_self_cycle(egraph, n)).collect();
             for node_id in egraph.classes().get(class_id).unwrap().nodes.iter()
             // .filter(|n| {
             //     !self.is_cycle(
@@ -220,7 +207,6 @@ impl MCTSExtractor {
         let cost_term = 1.0 - ((cost - min_cost) / (max_cost - min_cost));
         let rollout_term = EXPLORATION_PARAM * (parent_num_rollouts.ln() / num_rollouts).sqrt();
         if cost_term.is_nan() || rollout_term.is_nan() {
-            //println!("cost: {cost}, min_cost: {min_cost}, max_cost: {max_cost}, num_rollouts: {num_rollouts}, parent rollouts: {parent_num_rollouts}");
             return f64::NEG_INFINITY;
         }
         cost_term + rollout_term
@@ -335,8 +321,6 @@ impl MCTSExtractor {
             let node_choice = match eligible_nodes.choose(&mut rand::thread_rng()) {
                 Some(choice) => choice,
                 None => {
-                    //tree.remove(new_node_index);
-                    //tree[node_index].edges.remove(&first_choice.clone());
                     return None;
                 }
             };
@@ -430,35 +414,14 @@ impl Extractor for MCTSExtractor {
         result.choices = IndexMap::new();
         let mcts_results = self.mcts(egraph, roots, NUM_ITERS);
         let size = roots.len();
-        let mut vec: Vec<_> = egraph
-            .nodes
-            .iter()
-            .map(|(&ref key, &ref value)| (key, value.children.clone(), value.eclass.clone()))
-            .collect();
-        vec.sort();
-        //println!("MCTS, Nodes: {:?}",vec);
         result.choices.extend(mcts_results.into_iter());
-        //print!("MCTS:");
         result_dump(&result.choices, egraph);
-        let vec: Vec<_> = result
-            .choices
-            .iter()
-            .map(|(&ref key, &ref value)| (key, value))
-            .collect();
         if result.choices.is_empty(){
             let initial_result =
             super::faster_greedy_dag::FasterGreedyDagExtractor.extract(egraph, roots);
             log::info!("Unfinished MCTS solution");
             return initial_result;
         }
-
-        //println!("choices: {:?}",vec);
-        //println!("Roots: {:?}",roots);
-        //println!("result size: {}",result.choices.len());
-        // for root in roots {
-        //     //TODO: multiple roots behavior?
-        //     result.choices.extend(self.mcts(egraph, *root, NUM_ITERS).into_iter());
-        // }
         return result;
     }
 }
