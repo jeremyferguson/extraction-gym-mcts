@@ -1,7 +1,9 @@
 use super::*;
 use rand::seq::SliceRandom;
+use rand::Rng;
 use std::collections::{BinaryHeap, HashSet};
 use std::f64::consts::SQRT_2;
+use std::ops::Deref;
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 struct MCTSChoice {
@@ -22,7 +24,8 @@ struct MCTSNode {
 }
 type MCTSTree = Vec<MCTSNode>;
 const EXPLORATION_PARAM: f64 = SQRT_2;
-const NUM_ITERS: i64 = 50000;
+const NUM_ITERS: i64 = 100000;
+const P_ROLLOUT_CHOICE: f64 = 0.8; //probability of choosing a rollout node randomly
 
 fn result_dump(choices: &IndexMap<ClassId, NodeId>, egraph: &EGraph) -> () {
     println!("MCTS Choices: ");
@@ -98,17 +101,22 @@ impl MCTSExtractor {
             parent_edge: None,
             explored: false,
         });
+        let mut dag_solution = super::faster_greedy_dag::FasterGreedyDagExtractor
+            .extract(egraph, roots)
+            .choices;
         let mut j = 0;
         for i in 0..num_iters {
             j += 1;
             let leaf: Option<usize> = self.choose_leaf(0, egraph, &tree);
             match leaf {
-                Some(leaf_index) => match self.rollout(leaf_index, egraph, &mut tree) {
-                    None => continue,
-                    Some((choices, new_node_index)) => {
-                        self.backprop(egraph, new_node_index, choices, &mut tree)
+                Some(leaf_index) => {
+                    match self.rollout(leaf_index, egraph, &mut tree, &dag_solution) {
+                        None => continue,
+                        Some((choices, new_node_index)) => {
+                            self.backprop(egraph, new_node_index, choices, &mut tree)
+                        }
                     }
-                },
+                }
                 None => {
                     break;
                 }
@@ -254,6 +262,7 @@ impl MCTSExtractor {
         node_index: usize,
         egraph: &EGraph,
         tree: &mut MCTSTree,
+        oracle_solution: &IndexMap<ClassId, NodeId>,
     ) -> Option<(Box<FxHashMap<ClassId, NodeId>>, usize)> {
         // get an MCTSChoice to take from the leaf node
         let first_choice: MCTSChoice = self
@@ -306,21 +315,31 @@ impl MCTSExtractor {
         // initialize a map of choices taken on this rollout
         let mut choices: Box<FxHashMap<ClassId, NodeId>> = Box::new(new_decided.clone());
 
+        let mut rng = rand::thread_rng();
         while !todo.is_empty() {
             //randomly choose a class from todo, and a node from the class
             let to_visit_vec: Vec<ClassId> = todo.clone().into_iter().collect();
-            let class_choice = to_visit_vec.choose(&mut rand::thread_rng()).unwrap();
+            let class_choice = to_visit_vec.choose(&mut rng).unwrap();
             let eligible_nodes = egraph[class_choice]
                 .nodes
                 .iter()
                 //.filter(|n| !self.is_cycle(egraph, n, &choices.keys().collect::<HashSet<_>>()))
                 .collect::<Vec<_>>();
-            let node_choice = match eligible_nodes.choose(&mut rand::thread_rng()) {
-                Some(choice) => choice,
-                None => {
-                    return None;
+            let node_choice;
+            let rand_choice = eligible_nodes.choose(&mut rand::thread_rng()).unwrap();
+            let dag_choice = oracle_solution.get(class_choice);
+            node_choice = match dag_choice {
+                Some(choice) => {
+                    if rng.gen_bool(P_ROLLOUT_CHOICE) {
+                        *rand_choice
+                    } else {
+                        &choice
+                    }
                 }
+                None => *rand_choice,
             };
+
+            //let node_choice =
             let choice = MCTSChoice {
                 class: (*class_choice).clone(),
                 node: (*node_choice).clone(),
