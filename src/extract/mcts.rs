@@ -60,6 +60,7 @@ impl IndexMut<usize> for MCTSTree {
 }
 const EXPLORATION_PARAM: f64 = SQRT_2;
 const NUM_ITERS: i64 = 50000;
+const WARMSTART_LIMIT: usize = 686;
 
 fn result_dump(choices: &IndexMap<ClassId, NodeId>, egraph: &EGraph) -> () {
     println!("MCTS Choices: ");
@@ -189,14 +190,24 @@ impl MCTSExtractor {
         };
         // println!("{:?}", extraction_result.choices);
         // add results to tree
-        let mut curr_index = 0;
-        loop {
+        let mut curr_index;
+        // add nodes via dfs
+        let mut dfs_visited: FxHashSet<usize> = HashSet::with_capacity_and_hasher(roots.len(), Default::default());
+        let mut dfs_to_visit: Vec<usize> = Vec::new();
+        dfs_to_visit.push(0);
+        // tracked used choices of extraction result to compute cost later
+        let mut used_choices: FxHashMap<ClassId, NodeId> = HashMap::with_capacity_and_hasher(roots.len(), Default::default());
+        'outer: loop {
             // println!("curr_index: {curr_index}");
-            if curr_index == tree_slot.len() { break }
+            if dfs_to_visit.is_empty() { break }
+            curr_index = dfs_to_visit.pop().unwrap();
+            if dfs_visited.contains(&curr_index) { continue }
             // For each e_class in to_visit:
             for eclass in tree_slot.nodes[curr_index].to_visit.clone().iter() {
+                if tree_slot.len() > WARMSTART_LIMIT { break 'outer }
                 let chosen_node = &extraction_result.choices[eclass];
                 let enode = &egraph[chosen_node];
+                used_choices.insert(eclass.clone(), chosen_node.clone());
                 // decided_classes = curr.decided_classes[chosen_node/eclass]
                 let mut decided_classes = tree_slot.nodes[curr_index].decided_classes.clone();
                 decided_classes.insert((*eclass).clone(), (*chosen_node).clone());
@@ -245,17 +256,18 @@ impl MCTSExtractor {
                     MCTSChoice { class: (*eclass).clone(), node: (*chosen_node).clone()},
                     new_node_index
                 );
-                // println!("post push curr_index: {curr_index}, tree length: {}, tree capacity: {}", new_node_index, tree_slot.capacity());
+                dfs_to_visit.push(new_node_index);
+                println!("post push curr_index: {curr_index}, tree length: {}, tree capacity: {}", tree_slot.len(), tree_slot.nodes.capacity());
             }
-            curr_index += 1;
+            dfs_visited.insert(curr_index);
         }
         // extraction_result may contain extra, unused eclasses
-        // the decided classes of the last added node only holds the eclasses that we're using
-        // copy it to be the min_cost_map of every node in our tree
-        let choices = tree_slot.nodes.last().unwrap().decided_classes.clone();
-        let cost = self.cost(egraph, Box::new(choices.clone()));
+        // copy used_choices to be the min_cost_map of every node in our tree
+        println!("Used choices: {:?}", used_choices);
+        println!("Extraction result choices: {:?}", extraction_result.choices.len());
+        let cost = self.cost(egraph, Box::new(used_choices.clone()));
         for node in &mut tree_slot.nodes {
-            node.min_cost_map = choices.clone();
+            node.min_cost_map = used_choices.clone();
             node.min_cost = cost;
         }
     }
