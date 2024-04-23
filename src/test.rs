@@ -26,8 +26,8 @@ pub fn generate_random_egraph() -> EGraph {
     let mut rng = rand::thread_rng();
     let core_node_count = rng.gen_range(1..10) as usize;
     let extra_node_count = rng.gen_range(1..10);
-    //let core_node_count = rng.gen_range(1..100) as usize;
-    //let extra_node_count = rng.gen_range(1..100);
+    let core_node_count = rng.gen_range(1..100) as usize;
+    let extra_node_count = rng.gen_range(1..100);
     let mut nodes: Vec<Node> = Vec::with_capacity(core_node_count + extra_node_count);
     let mut eclass = 0;
 
@@ -223,7 +223,7 @@ fn check_optimal_results<I: Iterator<Item = EGraph>>(egraphs: I) {
 fn run_on_test_egraphs() {
     use walkdir::WalkDir;
 
-    let egraphs = WalkDir::new("/test_data/")
+    let egraphs = WalkDir::new("./test_data/")
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| {
@@ -232,6 +232,7 @@ fn run_on_test_egraphs() {
         })
         .map(|e| e.path().to_string_lossy().into_owned())
         .map(|e| EGraph::from_json_file(e).unwrap());
+
     check_optimal_results(egraphs);
 }
 

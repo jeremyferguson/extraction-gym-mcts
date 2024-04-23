@@ -85,11 +85,6 @@ impl ExtractionResult {
         }
 
         // No cycles
-        let vec: Vec<_> = egraph
-            .nodes
-            .iter()
-            .map(|(&ref key, &ref value)| (key, value.children.clone(), value.eclass.clone()))
-            .collect();
         assert!(self.find_cycles(&egraph, &egraph.root_eclasses).is_empty());
         // Nodes should match the class they are selected into.
         for (cid, nid) in &self.choices {
