@@ -1,7 +1,6 @@
 use super::*;
 use crate::faster_bottom_up::FasterBottomUpExtractor;
 use crate::faster_greedy_dag::FasterGreedyDagExtractor;
-use core::panic;
 use rand::seq::SliceRandom;
 use rand::Rng;
 use std::collections::{BTreeSet, BinaryHeap, HashSet};
@@ -61,11 +60,12 @@ impl IndexMut<usize> for MCTSTree {
     }
 }
 const EXPLORATION_PARAM: f64 = SQRT_2;
-const NUM_ITERS: i64 = 20000;
-const WARMSTART_LIMIT: usize = 2000;
-const P_ROLLOUT_CHOICE: f64 = 0.8;
+const NUM_ITERS: i64 = 10000;
+const WARMSTART_LIMIT: usize = 5000;
+const P_ROLLOUT_CHOICE: f64 = 0.2;
+const MEMORY_LIMIT: u64 = 14 * 1024 * 1024 * 1024; // 14 GB
 
-fn result_dump(choices: &IndexMap<ClassId, NodeId>, egraph: &EGraph) -> () {
+fn result_dump(choices: &IndexMap<ClassId, NodeId>, _egraph: &EGraph) -> () {
     println!("MCTS Choices: ");
     println!(
         "{}",
@@ -108,6 +108,27 @@ fn pretty_print_tree(tree: &MCTSTree, index: usize, indent: usize) {
     }
     println!("}}");
 }
+use procfs::process::Process;
+
+fn check_memory_usage() -> Result<(), String> {
+    // Access process information
+    let process = Process::myself().map_err(|e| e.to_string())?;
+
+    // Get memory usage data
+    let memory_info = process.statm().map_err(|e| e.to_string())?;
+    let page_size:u64 = procfs::page_size().unwrap_or(4096).try_into().unwrap(); //4096 is default page size
+    
+    // Calculate resident memory in bytes
+    let resident_memory = memory_info.resident * page_size;
+
+    // Check if memory usage exceeds the limit
+    if resident_memory > MEMORY_LIMIT {
+        Err("Memory usage approaching limit".to_string())
+    } else {
+        Ok(())
+    }
+}
+
 pub struct MCTSExtractor;
 impl MCTSExtractor {
     fn mcts(
@@ -125,11 +146,15 @@ impl MCTSExtractor {
         // warm start the tree
         self.warm_start(warm_start_extractor, egraph, roots, &mut tree);
         println!("Finished warm start");
-        let mut dag_solution = super::faster_greedy_dag::FasterGreedyDagExtractor
+        let dag_solution = super::faster_greedy_dag::FasterGreedyDagExtractor
             .extract(egraph, roots)
             .choices;
         let mut j = 0;
         for _ in 0..num_iters {
+            match check_memory_usage(){
+                Ok (())=> (),
+                Err (_) => {println!("Reached memory cap");return tree.nodes[0].min_cost_map.clone()}
+            }
             j += 1;
             let leaf: Option<usize> = self.choose_leaf(0, egraph, &mut tree);
             match leaf {
@@ -305,9 +330,7 @@ impl MCTSExtractor {
         );
         let cost = self.cost(
             egraph,
-            Box::new(FxHashMap::from_iter(
-                extraction_result.choices.clone().into_iter(),
-            )),
+            Box::new(used_choices.clone())
         );
         if cost.is_finite() {
             for node in &mut tree_slot.nodes {
