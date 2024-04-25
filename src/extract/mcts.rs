@@ -61,7 +61,7 @@ impl IndexMut<usize> for MCTSTree {
 }
 const EXPLORATION_PARAM: f64 = SQRT_2;
 const NUM_ITERS: i64 = 10000;
-const WARMSTART_LIMIT: usize = 5000;
+const WARMSTART_LIMIT: usize = 1000;
 const P_ROLLOUT_CHOICE: f64 = 0.2;
 const MEMORY_LIMIT: u64 = 14 * 1024 * 1024 * 1024; // 14 GB
 
@@ -150,6 +150,7 @@ impl MCTSExtractor {
             .extract(egraph, roots)
             .choices;
         let mut j = 0;
+        //pretty_print_tree(&tree, 0, 0);
         for _ in 0..num_iters {
             match check_memory_usage(){
                 Ok (())=> (),
@@ -330,11 +331,11 @@ impl MCTSExtractor {
         );
         let cost = self.cost(
             egraph,
-            Box::new(used_choices.clone())
+            Box::new(FxHashMap::from_iter(extraction_result.choices.clone().into_iter()))
         );
         if cost.is_finite() {
             for node in &mut tree_slot.nodes {
-                node.min_cost_map = used_choices.clone();
+                node.min_cost_map = FxHashMap::from_iter(extraction_result.choices.clone().into_iter());
                 node.min_cost = cost;
             }
         }
