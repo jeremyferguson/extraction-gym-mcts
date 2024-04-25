@@ -333,13 +333,21 @@ impl MCTSExtractor {
             "Extraction result choices: {:?}",
             extraction_result.choices.len()
         );
-        let cost = self.cost(
-            egraph,
-            Box::new(FxHashMap::from_iter(extraction_result.choices.clone().into_iter()))
-        );
+        let mut cost = self.cost(egraph, Box::new(used_choices.clone()));
         if cost.is_finite() {
             for node in &mut tree_slot.nodes {
-                node.min_cost_map = FxHashMap::from_iter(extraction_result.choices.clone().into_iter());
+                node.min_cost_map = used_choices.clone();
+                node.min_cost = cost;
+            }
+        } else {
+            cost = self.cost(
+                egraph,
+                Box::new(FxHashMap::from_iter(extraction_result.choices.clone().into_iter()))
+            );
+            for node in &mut tree_slot.nodes {
+                node.min_cost_map = FxHashMap::from_iter(
+                    extraction_result.choices.clone().into_iter()
+                );
                 node.min_cost = cost;
             }
         }
