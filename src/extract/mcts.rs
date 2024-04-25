@@ -1,3 +1,4 @@
+use std::cmp::max;
 use super::*;
 use crate::faster_bottom_up::FasterBottomUpExtractor;
 use crate::faster_greedy_dag::FasterGreedyDagExtractor;
@@ -63,7 +64,7 @@ const EXPLORATION_PARAM: f64 = SQRT_2;
 const NUM_ITERS: i64 = 10000;
 const WARMSTART_LIMIT: usize = 1000;
 const P_RAND_ROLLOUT: f64 = 0.2;
-const MEMORY_LIMIT: u64 = 14 * 1024 * 1024 * 1024; // 14 GB
+const MEMORY_LIMIT: usize = 14 * 1024 * 1024 * 1024; // 14 GB
 
 fn result_dump(choices: &IndexMap<ClassId, NodeId>, _egraph: &EGraph) -> () {
     println!("MCTS Choices: ");
@@ -108,26 +109,20 @@ fn pretty_print_tree(tree: &MCTSTree, index: usize, indent: usize) {
     }
     println!("}}");
 }
-// use procfs::process::Process;
-//
-// fn check_memory_usage() -> Result<(), String> {
-//     // Access process information
-//     let process = Process::myself().map_err(|e| e.to_string())?;
-//
-//     // Get memory usage data
-//     let memory_info = process.statm().map_err(|e| e.to_string())?;
-//     let page_size:u64 = procfs::page_size().unwrap_or(4096).try_into().unwrap(); //4096 is default page size
-//
-//     // Calculate resident memory in bytes
-//     let resident_memory = memory_info.resident * page_size;
-//
-//     // Check if memory usage exceeds the limit
-//     if resident_memory > MEMORY_LIMIT {
-//         Err("Memory usage approaching limit".to_string())
-//     } else {
-//         Ok(())
-//     }
-// }
+fn check_memory_usage() -> Result<(), String> {
+    match memory_stats::memory_stats() {
+        Some(mem_stats) => {
+            if max(mem_stats.physical_mem, mem_stats.virtual_mem) > MEMORY_LIMIT {
+                Err("Memory usage approaching limit".to_string())
+            } else {
+                Ok(())
+            }
+        }
+        None => {
+            Err("Couldn't get memory usage stats".to_string())
+        }
+    }
+}
 
 pub struct MCTSExtractor;
 impl MCTSExtractor {
@@ -152,10 +147,10 @@ impl MCTSExtractor {
         let mut j = 0;
         //pretty_print_tree(&tree, 0, 0);
         for _ in 0..num_iters {
-            // match check_memory_usage(){
-            //     Ok (())=> (),
-            //     Err (_) => {println!("Reached memory cap");return tree.nodes[0].min_cost_map.clone()}
-            // }
+            match check_memory_usage(){
+                Ok (())=> (),
+                Err (_) => {println!("Reached memory cap");return tree.nodes[0].min_cost_map.clone()}
+            }
             j += 1;
             let leaf: Option<usize> = self.choose_leaf(0, egraph, &mut tree);
             match leaf {
