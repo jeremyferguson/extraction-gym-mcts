@@ -62,7 +62,7 @@ impl IndexMut<usize> for MCTSTree {
 const EXPLORATION_PARAM: f64 = SQRT_2;
 const NUM_ITERS: i64 = 10000;
 const WARMSTART_LIMIT: usize = 1000;
-const P_ROLLOUT_CHOICE: f64 = 0.2;
+const P_RAND_ROLLOUT: f64 = 0.2;
 const MEMORY_LIMIT: u64 = 14 * 1024 * 1024 * 1024; // 14 GB
 
 fn result_dump(choices: &IndexMap<ClassId, NodeId>, _egraph: &EGraph) -> () {
@@ -116,8 +116,8 @@ fn check_memory_usage() -> Result<(), String> {
 
     // Get memory usage data
     let memory_info = process.statm().map_err(|e| e.to_string())?;
-    let page_size:u64 = procfs::page_size().unwrap_or(4096).try_into().unwrap(); //4096 is default page size
-    
+    let page_size: u64 = procfs::page_size().unwrap_or(4096).try_into().unwrap(); //4096 is default page size
+
     // Calculate resident memory in bytes
     let resident_memory = memory_info.resident * page_size;
 
@@ -152,9 +152,12 @@ impl MCTSExtractor {
         let mut j = 0;
         //pretty_print_tree(&tree, 0, 0);
         for _ in 0..num_iters {
-            match check_memory_usage(){
-                Ok (())=> (),
-                Err (_) => {println!("Reached memory cap");return tree.nodes[0].min_cost_map.clone()}
+            match check_memory_usage() {
+                Ok(()) => (),
+                Err(_) => {
+                    println!("Reached memory cap");
+                    return tree.nodes[0].min_cost_map.clone();
+                }
             }
             j += 1;
             let leaf: Option<usize> = self.choose_leaf(0, egraph, &mut tree);
@@ -331,11 +334,14 @@ impl MCTSExtractor {
         );
         let cost = self.cost(
             egraph,
-            Box::new(FxHashMap::from_iter(extraction_result.choices.clone().into_iter()))
+            Box::new(FxHashMap::from_iter(
+                extraction_result.choices.clone().into_iter(),
+            )),
         );
         if cost.is_finite() {
             for node in &mut tree_slot.nodes {
-                node.min_cost_map = FxHashMap::from_iter(extraction_result.choices.clone().into_iter());
+                node.min_cost_map =
+                    FxHashMap::from_iter(extraction_result.choices.clone().into_iter());
                 node.min_cost = cost;
             }
         }
@@ -590,19 +596,28 @@ impl MCTSExtractor {
         let mut rng = rand::thread_rng();
         while !todo.is_empty() {
             //randomly choose a class from todo, and a node from the class
-            let to_visit_vec: Vec<ClassId> = todo.clone().into_iter().collect();
+            let mut to_visit_vec: Vec<ClassId>;
+            let rand_rollout = rng.gen_bool(P_RAND_ROLLOUT);
+            if rand_rollout {
+                to_visit_vec = todo.clone().into_iter().collect();
+            } else {
+                to_visit_vec = todo
+                    .clone()
+                    .into_iter()
+                    .filter(|c| oracle_solution.contains_key(c))
+                    .collect();
+                if to_visit_vec.is_empty() {
+                    to_visit_vec = todo.clone().into_iter().collect();
+                }
+            }
             let class_choice = to_visit_vec.choose(&mut rng).unwrap();
-            let eligible_nodes = egraph[class_choice]
-                .nodes
-                .iter()
-                //.filter(|n| !self.is_cycle(egraph, n, &choices.keys().collect::<HashSet<_>>()))
-                .collect::<Vec<_>>();
+            let eligible_nodes = egraph[class_choice].nodes.iter().collect::<Vec<_>>();
             let node_choice;
             let rand_choice = eligible_nodes.choose(&mut rand::thread_rng()).unwrap();
             let dag_choice = oracle_solution.get(class_choice);
             node_choice = match dag_choice {
                 Some(choice) => {
-                    if rng.gen_bool(P_ROLLOUT_CHOICE) {
+                    if rand_rollout {
                         *rand_choice
                     } else {
                         &choice
@@ -610,8 +625,6 @@ impl MCTSExtractor {
                 }
                 None => *rand_choice,
             };
-
-            //let node_choice =
             let choice = MCTSChoice {
                 class: (*class_choice).clone(),
                 node: (*node_choice).clone(),
