@@ -108,26 +108,26 @@ fn pretty_print_tree(tree: &MCTSTree, index: usize, indent: usize) {
     }
     println!("}}");
 }
-use procfs::process::Process;
-
-fn check_memory_usage() -> Result<(), String> {
-    // Access process information
-    let process = Process::myself().map_err(|e| e.to_string())?;
-
-    // Get memory usage data
-    let memory_info = process.statm().map_err(|e| e.to_string())?;
-    let page_size: u64 = procfs::page_size().unwrap_or(4096).try_into().unwrap(); //4096 is default page size
-
-    // Calculate resident memory in bytes
-    let resident_memory = memory_info.resident * page_size;
-
-    // Check if memory usage exceeds the limit
-    if resident_memory > MEMORY_LIMIT {
-        Err("Memory usage approaching limit".to_string())
-    } else {
-        Ok(())
-    }
-}
+// use procfs::process::Process;
+//
+// fn check_memory_usage() -> Result<(), String> {
+//     // Access process information
+//     let process = Process::myself().map_err(|e| e.to_string())?;
+//
+//     // Get memory usage data
+//     let memory_info = process.statm().map_err(|e| e.to_string())?;
+//     let page_size:u64 = procfs::page_size().unwrap_or(4096).try_into().unwrap(); //4096 is default page size
+//
+//     // Calculate resident memory in bytes
+//     let resident_memory = memory_info.resident * page_size;
+//
+//     // Check if memory usage exceeds the limit
+//     if resident_memory > MEMORY_LIMIT {
+//         Err("Memory usage approaching limit".to_string())
+//     } else {
+//         Ok(())
+//     }
+// }
 
 pub struct MCTSExtractor;
 impl MCTSExtractor {
@@ -152,13 +152,10 @@ impl MCTSExtractor {
         let mut j = 0;
         //pretty_print_tree(&tree, 0, 0);
         for _ in 0..num_iters {
-            match check_memory_usage() {
-                Ok(()) => (),
-                Err(_) => {
-                    println!("Reached memory cap");
-                    return tree.nodes[0].min_cost_map.clone();
-                }
-            }
+            // match check_memory_usage(){
+            //     Ok (())=> (),
+            //     Err (_) => {println!("Reached memory cap");return tree.nodes[0].min_cost_map.clone()}
+            // }
             j += 1;
             let leaf: Option<usize> = self.choose_leaf(0, egraph, &mut tree);
             match leaf {
@@ -243,15 +240,16 @@ impl MCTSExtractor {
             if dfs_to_visit.is_empty() {
                 break;
             }
+            if dfs_visited.len() > WARMSTART_LIMIT { break }
             curr_index = dfs_to_visit.pop().unwrap();
             if dfs_visited.contains(&curr_index) {
                 continue;
             }
             // For each e_class in to_visit:
             for eclass in tree_slot.nodes[curr_index].to_visit.clone().iter() {
-                if tree_slot.len() > WARMSTART_LIMIT {
-                    break 'outer;
-                }
+                // if tree_slot.len() > WARMSTART_LIMIT {
+                //     break 'outer;
+                // }
                 let chosen_node = &extraction_result.choices[eclass];
                 let enode = &egraph[chosen_node];
                 used_choices.insert(eclass.clone(), chosen_node.clone());
@@ -270,6 +268,9 @@ impl MCTSExtractor {
                 for decided_class in decided_classes.keys() {
                     to_visit.remove(decided_class);
                 }
+                // if to_visit.is_empty() {
+                //     println!("Empty to visit found!")
+                // }
                 // check whether node that would be created already exists
                 let new_node_key = MCTSTreeKey {
                     decided_classes: decided_classes
@@ -327,21 +328,26 @@ impl MCTSExtractor {
         }
         // extraction_result may contain extra, unused eclasses
         // copy used_choices to be the min_cost_map of every node in our tree
-        println!("Used choices: {:?}", used_choices);
+        println!("Used choices length: {:?}", used_choices.len());
         println!(
             "Extraction result choices: {:?}",
             extraction_result.choices.len()
         );
-        let cost = self.cost(
-            egraph,
-            Box::new(FxHashMap::from_iter(
-                extraction_result.choices.clone().into_iter(),
-            )),
-        );
+        let mut cost = self.cost(egraph, Box::new(used_choices.clone()));
         if cost.is_finite() {
             for node in &mut tree_slot.nodes {
-                node.min_cost_map =
-                    FxHashMap::from_iter(extraction_result.choices.clone().into_iter());
+                node.min_cost_map = used_choices.clone();
+                node.min_cost = cost;
+            }
+        } else {
+            cost = self.cost(
+                egraph,
+                Box::new(FxHashMap::from_iter(extraction_result.choices.clone().into_iter()))
+            );
+            for node in &mut tree_slot.nodes {
+                node.min_cost_map = FxHashMap::from_iter(
+                    extraction_result.choices.clone().into_iter()
+                );
                 node.min_cost = cost;
             }
         }
