@@ -64,7 +64,7 @@ const EXPLORATION_PARAM: f64 = SQRT_2;
 const NUM_ITERS: i64 = 10000;
 const WARMSTART_LIMIT: usize = 1000;
 const P_RAND_ROLLOUT: f64 = 0.2;
-const MEMORY_LIMIT: usize = 14 * 1024 * 1024 * 1024; // 14 GB
+const MEMORY_LIMIT: usize = 1 * 1024 * 1024 * 1024; // 14 GB
 
 fn result_dump(choices: &IndexMap<ClassId, NodeId>, _egraph: &EGraph) -> () {
     println!("MCTS Choices: ");
@@ -109,10 +109,18 @@ fn pretty_print_tree(tree: &MCTSTree, index: usize, indent: usize) {
     }
     println!("}}");
 }
+fn print_memory_usage() -> () {
+    match memory_stats::memory_stats() {
+        Some(mem_stats) => {
+            println!("Physical memory usage: {:?}", mem_stats.physical_mem)
+        }
+        None => ()
+    }
+}
 fn check_memory_usage() -> Result<(), String> {
     match memory_stats::memory_stats() {
         Some(mem_stats) => {
-            if max(mem_stats.physical_mem, mem_stats.virtual_mem) > MEMORY_LIMIT {
+            if mem_stats.physical_mem > MEMORY_LIMIT {
                 Err("Memory usage approaching limit".to_string())
             } else {
                 Ok(())
@@ -140,16 +148,19 @@ impl MCTSExtractor {
         };
         // warm start the tree
         self.warm_start(warm_start_extractor, egraph, roots, &mut tree);
-        println!("Finished warm start");
+        println!("Finished warm start with size {:?}", tree.len());
         let dag_solution = super::faster_greedy_dag::FasterGreedyDagExtractor
             .extract(egraph, roots)
             .choices;
         let mut j = 0;
         //pretty_print_tree(&tree, 0, 0);
         for _ in 0..num_iters {
-            match check_memory_usage(){
+            match check_memory_usage() {
                 Ok (())=> (),
-                Err (_) => {println!("Reached memory cap");return tree.nodes[0].min_cost_map.clone()}
+                Err (_) => {
+                    println!("Reached memory cap with size {:?}", tree.len());
+                    return tree.nodes[0].min_cost_map.clone()
+                }
             }
             j += 1;
             let leaf: Option<usize> = self.choose_leaf(0, egraph, &mut tree);
@@ -209,7 +220,7 @@ impl MCTSExtractor {
                 parent_edge: None,
                 explored: false,
             },
-            root_key,
+            root_key.clone()
         );
         if warm_start_extractor.is_none() {
             return;
@@ -219,7 +230,6 @@ impl MCTSExtractor {
             ExtractorType::Tree => FasterBottomUpExtractor {}.extract(egraph, roots),
             ExtractorType::Dag => FasterGreedyDagExtractor {}.extract(egraph, roots),
         };
-        // println!("{:?}", extraction_result.choices);
         // add results to tree
         let mut curr_index;
         // add nodes via dfs
@@ -242,9 +252,49 @@ impl MCTSExtractor {
             }
             // For each e_class in to_visit:
             for eclass in tree_slot.nodes[curr_index].to_visit.clone().iter() {
-                // if tree_slot.len() > WARMSTART_LIMIT {
-                //     break 'outer;
-                // }
+                // check if we've hit the memory limit
+                match check_memory_usage(){
+                    Ok (())=> (),
+                    Err (_) => {
+                        println!("Warmstart reached memory cap");
+                        // clear tree
+                        *tree_slot = MCTSTree {
+                            keys: HashMap::with_capacity_and_hasher(roots.len(), Default::default()),
+                            nodes: Vec::new(),
+                        };
+                        // set root min_cost_map to extraction result's choices and cost to cost of those choices
+                        tree_slot.push(
+                            MCTSNode {
+                                to_visit: HashSet::from_iter(roots.iter().cloned()),
+                                decided_classes: FxHashMap::<ClassId, NodeId>::with_capacity_and_hasher(
+                                    egraph.classes().len(),
+                                    Default::default(),
+                                ),
+                                num_rollouts: 1,
+                                min_cost: self.cost(
+                                    egraph,
+                                    Box::new(
+                                        FxHashMap::from_iter(
+                                            extraction_result.choices.clone().into_iter()
+                                        )
+                                    )
+                                ),
+                                min_cost_map: FxHashMap::from_iter(
+                                    extraction_result.choices.clone().into_iter()
+                                ),
+                                edges: FxHashMap::<MCTSChoice, usize>::with_capacity_and_hasher(
+                                    egraph.classes().len(),
+                                    Default::default(),
+                                ),
+                                parent: None,
+                                parent_edge: None,
+                                explored: false,
+                            },
+                            root_key,
+                        );
+                        return
+                    }
+                }
                 let chosen_node = &extraction_result.choices[eclass];
                 let enode = &egraph[chosen_node];
                 used_choices.insert(eclass.clone(), chosen_node.clone());
