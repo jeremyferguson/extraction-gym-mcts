@@ -138,6 +138,15 @@ impl MCTSExtractor {
         num_iters: i64,
         warm_start_extractor: Option<ExtractorType>,
     ) -> FxHashMap<ClassId, NodeId> {
+        // construct mapping between ClassIds and bitvector indices
+        let mut index_to_class_id: [ClassId; egraph.classes().len()] = [];
+        let mut class_id_to_index: FxHashMap<ClassId, usize>;
+        let mut i = 0;
+        for (id, _) in egraph.classes() {
+            index_to_class_id[i] = id;
+            class_id_to_index[id] = i;
+            i += 1;
+        }
         // initialize the vector which will contain all our nodes
         let mut tree: MCTSTree = MCTSTree {
             keys: HashMap::with_capacity_and_hasher(roots.len(), Default::default()),
