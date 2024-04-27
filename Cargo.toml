@@ -18,7 +18,7 @@ rand = "0.8.5"
 walkdir = "2.4.0"
 
 anyhow = "1.0.71"
-bitvec = "1"
+bit-vec = "0.6.3"
 coin_cbc = { version = "0.1.6", optional = true }
 im-rc = "15.1.0"
 rustc-hash = "1.1.0"

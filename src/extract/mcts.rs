@@ -4,9 +4,11 @@ use crate::faster_greedy_dag::FasterGreedyDagExtractor;
 use rand::Rng;
 use std::collections::{BTreeSet, BinaryHeap, HashSet};
 use std::f64::consts::SQRT_2;
+use std::hash::BuildHasherDefault;
+use std::iter::empty;
 use std::ops::{Index, IndexMut};
-use std::sync::Arc;
-use bitvec::prelude::*;
+use bit_vec::BitVec;
+use rand::prelude::SliceRandom;
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Ord, PartialOrd)]
 struct MCTSChoice {
@@ -15,7 +17,7 @@ struct MCTSChoice {
 }
 #[derive(Clone)]
 struct MCTSNode {
-    to_visit: Arc<BitSlice<usize, Lsb0>>,
+    to_visit: BitVec,
     decided_classes: FxHashMap<ClassId, NodeId>,
     num_rollouts: i32,
     min_cost: f64,
@@ -147,8 +149,8 @@ impl MCTSExtractor {
         );
         let mut i = 0;
         for (id, _) in egraph.classes() {
-            index_to_class_id[i] = id;
-            class_id_to_index.insert(*id, i);
+            index_to_class_id[i] = (*id).clone();
+            class_id_to_index.insert((*id).clone(), i);
             i += 1;
         }
         // initialize the vector which will contain all our nodes
@@ -157,7 +159,7 @@ impl MCTSExtractor {
             nodes: Vec::new(),
         };
         // warm start the tree
-        self.warm_start(warm_start_extractor, egraph, roots, &mut tree);
+        self.warm_start(warm_start_extractor, egraph, roots, &mut tree, &index_to_class_id, &class_id_to_index);
         println!("Finished warm start");
         let dag_solution = super::faster_greedy_dag::FasterGreedyDagExtractor
             .extract(egraph, roots)
@@ -170,13 +172,13 @@ impl MCTSExtractor {
             //     Err (_) => {println!("Reached memory cap");return tree.nodes[0].min_cost_map.clone()}
             // }
             j += 1;
-            let leaf: Option<usize> = self.choose_leaf(0, egraph, &mut tree);
+            let leaf: Option<usize> = self.choose_leaf(0, egraph, &mut tree, &index_to_class_id, &class_id_to_index);
             match leaf {
                 Some(leaf_index) => {
-                    match self.rollout(leaf_index, egraph, &mut tree, &dag_solution) {
+                    match self.rollout(leaf_index, egraph, &mut tree, &dag_solution, &index_to_class_id, &class_id_to_index) {
                         None => continue,
                         Some((choices, new_node_index)) => {
-                            self.backprop(egraph, new_node_index, choices, &mut tree)
+                            self.backprop(egraph, new_node_index, choices, &mut tree, &index_to_class_id, &class_id_to_index)
                         }
                     }
                 }
@@ -198,17 +200,27 @@ impl MCTSExtractor {
         egraph: &EGraph,
         roots: &[ClassId],
         tree_slot: &mut MCTSTree,
+        index_to_class_id: &Vec<ClassId>,
+        class_id_to_index: &HashMap<ClassId, usize, BuildHasherDefault<rustc_hash::FxHasher>>
     ) -> () {
         tree_slot.keys.clear();
         tree_slot.nodes.clear();
+
         // Initialize tree with default root node
         let root_key = MCTSTreeKey {
             decided_classes: BTreeSet::new(),
             to_visit: roots.iter().map(|cid| (*cid).clone()).collect(),
         };
+
+        // Create bitvector of roots to visit
+        let mut roots_to_visit = BitVec::from_elem(index_to_class_id.len(), false);
+        for root_id in roots {
+            roots_to_visit.set(class_id_to_index[root_id], true);
+        }
+
         tree_slot.push(
             MCTSNode {
-                to_visit: HashSet::from_iter(roots.iter().cloned()),
+                to_visit: roots_to_visit,
                 decided_classes: FxHashMap::<ClassId, NodeId>::with_capacity_and_hasher(
                     egraph.classes().len(),
                     Default::default(),
@@ -259,83 +271,91 @@ impl MCTSExtractor {
                 continue;
             }
             // For each e_class in to_visit:
-            for eclass in tree_slot.nodes[curr_index].to_visit.clone().iter() {
+            let to_visit = tree_slot.nodes[curr_index].to_visit.clone();
+            for i in 0..to_visit.len() {
                 // if tree_slot.len() > WARMSTART_LIMIT {
                 //     break 'outer;
                 // }
-                let chosen_node = &extraction_result.choices[eclass];
-                let enode = &egraph[chosen_node];
-                used_choices.insert(eclass.clone(), chosen_node.clone());
-                // decided_classes = curr.decided_classes[chosen_node/eclass]
-                let mut decided_classes = tree_slot.nodes[curr_index].decided_classes.clone();
-                decided_classes.insert((*eclass).clone(), (*chosen_node).clone());
-                // to_vist is (curr.to_visit - eclass) U enode.children - decided
-                let mut to_visit = tree_slot.nodes[curr_index].to_visit.clone();
-                to_visit.remove(eclass);
-                to_visit.extend(
-                    enode
-                        .children
-                        .iter()
-                        .map(|nid| (*egraph.nid_to_cid(nid)).clone()),
-                );
-                for decided_class in decided_classes.keys() {
-                    to_visit.remove(decided_class);
-                }
-                // if to_visit.is_empty() {
-                //     println!("Empty to visit found!")
-                // }
-                // check whether node that would be created already exists
-                let new_node_key = MCTSTreeKey {
-                    decided_classes: decided_classes
-                        .iter()
-                        .map(|(cid, nid)| MCTSChoice {
-                            class: cid.clone(),
-                            node: nid.clone(),
-                        })
-                        .collect(),
-                    to_visit: to_visit.iter().map(|cid| cid.clone()).collect(),
-                };
-                let new_node_index = match tree_slot.keys.get(&new_node_key) {
-                    Some(i) => *i,
-                    // create a new MCTSNode if needed
-                    None => tree_slot.push(
-                        MCTSNode {
-                            to_visit,
-                            decided_classes,
-                            num_rollouts: 1,
-                            min_cost: 0.0,
-                            min_cost_map: FxHashMap::<ClassId, NodeId>::with_capacity_and_hasher(
-                                0,
-                                Default::default(),
-                            ),
-                            edges: FxHashMap::<MCTSChoice, usize>::with_capacity_and_hasher(
-                                egraph.classes().len(),
-                                Default::default(),
-                            ),
-                            parent: Some(curr_index),
-                            parent_edge: Some(MCTSChoice {
-                                class: (*eclass).clone(),
-                                node: (*chosen_node).clone(),
-                            }),
-                            explored: false,
+                if to_visit[i] {
+                    let eclass = &index_to_class_id[i];
+                    let chosen_node = &extraction_result.choices[eclass];
+                    let enode = &egraph[chosen_node];
+                    used_choices.insert(eclass.clone(), chosen_node.clone());
+                    // decided_classes = curr.decided_classes[chosen_node/eclass]
+                    let mut decided_classes = tree_slot.nodes[curr_index].decided_classes.clone();
+                    decided_classes.insert((*eclass).clone(), (*chosen_node).clone());
+                    // to_vist is (curr.to_visit - eclass) U enode.children - decided
+                    let mut to_visit = tree_slot.nodes[curr_index].to_visit.clone();
+                    to_visit.set(i, false);
+                    for nid in enode.children.iter() {
+                        let cid = egraph.nid_to_cid(nid);
+                        to_visit.set(class_id_to_index[cid], true);
+                    }
+                    for decided_class in decided_classes.keys() {
+                        to_visit.set(class_id_to_index[decided_class], false);
+                    }
+                    // if to_visit.is_empty() {
+                    //     println!("Empty to visit found!")
+                    // }
+                    // check whether node that would be created already exists
+                    let mut new_tree_to_visit = BTreeSet::new();
+                    for i in 0..to_visit.len() {
+                        if to_visit[i] {
+                            new_tree_to_visit.insert(index_to_class_id[i].clone());
+                        }
+                    }
+                    let new_node_key = MCTSTreeKey {
+                        decided_classes: decided_classes
+                            .iter()
+                            .map(|(cid, nid)| MCTSChoice {
+                                class: cid.clone(),
+                                node: nid.clone(),
+                            })
+                            .collect(),
+                        to_visit: new_tree_to_visit,
+                    };
+                    let new_node_index = match tree_slot.keys.get(&new_node_key) {
+                        Some(i) => *i,
+                        // create a new MCTSNode if needed
+                        None => tree_slot.push(
+                            MCTSNode {
+                                to_visit,
+                                decided_classes,
+                                num_rollouts: 1,
+                                min_cost: 0.0,
+                                min_cost_map: FxHashMap::<ClassId, NodeId>::with_capacity_and_hasher(
+                                    0,
+                                    Default::default(),
+                                ),
+                                edges: FxHashMap::<MCTSChoice, usize>::with_capacity_and_hasher(
+                                    egraph.classes().len(),
+                                    Default::default(),
+                                ),
+                                parent: Some(curr_index),
+                                parent_edge: Some(MCTSChoice {
+                                    class: (*eclass).clone(),
+                                    node: (*chosen_node).clone(),
+                                }),
+                                explored: false,
+                            },
+                            new_node_key,
+                        ),
+                    };
+                    // Add an edge to curr
+                    tree_slot.nodes[curr_index].edges.insert(
+                        MCTSChoice {
+                            class: (*eclass).clone(),
+                            node: (*chosen_node).clone(),
                         },
-                        new_node_key,
-                    ),
-                };
-                // Add an edge to curr
-                tree_slot.nodes[curr_index].edges.insert(
-                    MCTSChoice {
-                        class: (*eclass).clone(),
-                        node: (*chosen_node).clone(),
-                    },
-                    new_node_index,
-                );
-                dfs_to_visit.push(new_node_index);
-                // println!(
-                //     "post push curr_index: {curr_index}, tree length: {}, tree capacity: {}",
-                //     tree_slot.len(),
-                //     tree_slot.nodes.capacity()
-                // );
+                        new_node_index,
+                    );
+                    dfs_to_visit.push(new_node_index);
+                    // println!(
+                    //     "post push curr_index: {curr_index}, tree length: {}, tree capacity: {}",
+                    //     tree_slot.len(),
+                    //     tree_slot.nodes.capacity()
+                    // );
+                }
             }
             dfs_visited.insert(curr_index);
         }
@@ -366,54 +386,61 @@ impl MCTSExtractor {
         }
     }
 
-    fn choose_leaf(&self, curr: usize, egraph: &EGraph, tree: &mut MCTSTree) -> Option<usize> {
+    fn choose_leaf(&self, curr: usize, egraph: &EGraph, tree: &mut MCTSTree, index_to_class_id: &Vec<ClassId>, class_id_to_index: &HashMap<ClassId, usize, BuildHasherDefault<rustc_hash::FxHasher>>) -> Option<usize> {
         // look for a choice not in curr's edges
         let curr_to_visit = tree[curr].to_visit.clone();
-        for class_id in curr_to_visit.iter() {
-            for node_id in egraph.classes().get(class_id).unwrap().nodes.iter() {
-                let choice = MCTSChoice {
-                    class: (*class_id).clone(),
-                    node: (*node_id).clone(),
-                };
-                if !tree[curr].edges.contains_key(&choice) {
-                    // Check whether an equivalent node already exists in the Tree
-                    let mut decided_classes: BTreeSet<MCTSChoice> = tree[curr]
-                        .decided_classes
-                        .iter()
-                        .map(|(c, n)| MCTSChoice {
-                            class: c.clone(),
-                            node: n.clone(),
-                        })
-                        .collect();
-                    decided_classes.insert(choice.clone());
-                    let mut to_visit: BTreeSet<ClassId> =
-                        tree[curr].to_visit.iter().cloned().collect();
-                    to_visit.extend(
-                        egraph[node_id]
-                            .children
-                            .iter()
-                            .map(|n| egraph.nid_to_cid(n))
-                            .cloned(),
-                    );
-                    to_visit =
-                        &to_visit - &decided_classes.iter().map(|c| c.class.clone()).collect();
-                    let key = MCTSTreeKey {
-                        decided_classes,
-                        to_visit,
+        for i in 0..curr_to_visit.len() {
+            if curr_to_visit[i] {
+                let class_id = &index_to_class_id[i];
+                for node_id in egraph.classes().get(class_id).unwrap().nodes.iter() {
+                    let choice = MCTSChoice {
+                        class: (*class_id).clone(),
+                        node: (*node_id).clone(),
                     };
-                    let node_index_option = tree.keys.get(&key);
-                    let node_index: usize;
-                    match node_index_option {
-                        // if one doesn't, return this node
-                        None => {
-                            return Some(curr);
+                    if !tree[curr].edges.contains_key(&choice) {
+                        // Check whether an equivalent node already exists in the Tree
+                        let mut decided_classes: BTreeSet<MCTSChoice> = tree[curr]
+                            .decided_classes
+                            .iter()
+                            .map(|(c, n)| MCTSChoice {
+                                class: c.clone(),
+                                node: n.clone(),
+                            })
+                            .collect();
+                        decided_classes.insert(choice.clone());
+                        let mut to_visit = BTreeSet::new();
+                        for i in 0..curr_to_visit.len() {
+                            if curr_to_visit[i] {
+                                to_visit.insert(index_to_class_id[i].clone());
+                            }
                         }
-                        // if one does, update curr_node's edges
-                        Some(i) => {
-                            node_index = *i;
+                        to_visit.extend(
+                            egraph[node_id]
+                                .children
+                                .iter()
+                                .map(|n| egraph.nid_to_cid(n))
+                                .cloned(),
+                        );
+                        to_visit =
+                            &to_visit - &decided_classes.iter().map(|c| c.class.clone()).collect();
+                        let key = MCTSTreeKey {
+                            decided_classes,
+                            to_visit,
+                        };
+                        let node_index_option = tree.keys.get(&key);
+                        let node_index: usize;
+                        match node_index_option {
+                            // if one doesn't, return this node
+                            None => {
+                                return Some(curr);
+                            }
+                            // if one does, update curr_node's edges
+                            Some(i) => {
+                                node_index = *i;
+                            }
                         }
+                        tree[curr].edges.insert(choice, node_index);
                     }
-                    tree[curr].edges.insert(choice, node_index);
                 }
             }
         }
@@ -433,7 +460,7 @@ impl MCTSExtractor {
         // map nodes to uct cost and recurse on node which maximizes uct
         let next_curr =
             self.uct_choose_from_nodes(unexplored_children, tree[curr].num_rollouts, tree);
-        self.choose_leaf(next_curr, egraph, tree)
+        self.choose_leaf(next_curr, egraph, tree, index_to_class_id, class_id_to_index)
     }
     fn uct_choose_from_nodes(
         &self,
@@ -487,48 +514,56 @@ impl MCTSExtractor {
         node_index: usize,
         egraph: &EGraph,
         tree: &mut MCTSTree,
+        index_to_class_id: &Vec<ClassId>
     ) -> Option<MCTSChoice> {
         let curr_node = &mut tree.nodes[node_index];
-        for class_id in curr_node.to_visit.iter() {
-            for node_id in egraph.classes().get(class_id).unwrap().nodes.iter() {
-                let choice = MCTSChoice {
-                    class: (*class_id).clone(),
-                    node: (*node_id).clone(),
-                };
-                if !curr_node.edges.contains_key(&choice) {
-                    // Check whether an equivalent node already exists in the Tree
-                    let mut decided_classes: BTreeSet<MCTSChoice> = curr_node
-                        .decided_classes
-                        .iter()
-                        .map(|(c, n)| MCTSChoice {
-                            class: c.clone(),
-                            node: n.clone(),
-                        })
-                        .collect();
-                    decided_classes.insert(choice.clone());
-                    let mut to_visit: BTreeSet<ClassId> =
-                        curr_node.to_visit.iter().cloned().collect();
-                    to_visit.extend(
-                        egraph[node_id]
-                            .children
-                            .iter()
-                            .map(|n| egraph.nid_to_cid(n))
-                            .cloned(),
-                    );
-                    to_visit =
-                        &to_visit - &decided_classes.iter().map(|c| c.class.clone()).collect();
-                    let key = MCTSTreeKey {
-                        decided_classes,
-                        to_visit,
+        for i in 0..curr_node.to_visit.len() {
+            if curr_node.to_visit[i] {
+                let class_id = &index_to_class_id[i];
+                for node_id in egraph.classes().get(class_id).unwrap().nodes.iter() {
+                    let choice = MCTSChoice {
+                        class: (*class_id).clone(),
+                        node: (*node_id).clone(),
                     };
-                    match tree.keys.get(&key) {
-                        // if it doesn't, return this choice
-                        None => {
-                            return Some(choice);
+                    if !curr_node.edges.contains_key(&choice) {
+                        // Check whether an equivalent node already exists in the Tree
+                        let mut decided_classes: BTreeSet<MCTSChoice> = curr_node
+                            .decided_classes
+                            .iter()
+                            .map(|(c, n)| MCTSChoice {
+                                class: c.clone(),
+                                node: n.clone(),
+                            })
+                            .collect();
+                        decided_classes.insert(choice.clone());
+                        let mut to_visit = BTreeSet::new();
+                        for i in 0..curr_node.to_visit.len() {
+                            if curr_node.to_visit[i] {
+                                to_visit.insert(index_to_class_id[i].clone());
+                            }
                         }
-                        // if it does, update curr_node's edges
-                        Some(i) => {
-                            curr_node.edges.insert(choice, *i);
+                        to_visit.extend(
+                            egraph[node_id]
+                                .children
+                                .iter()
+                                .map(|n| egraph.nid_to_cid(n))
+                                .cloned(),
+                        );
+                        to_visit =
+                            &to_visit - &decided_classes.iter().map(|c| c.class.clone()).collect();
+                        let key = MCTSTreeKey {
+                            decided_classes,
+                            to_visit,
+                        };
+                        match tree.keys.get(&key) {
+                            // if it doesn't, return this choice
+                            None => {
+                                return Some(choice);
+                            }
+                            // if it does, update curr_node's edges
+                            Some(i) => {
+                                curr_node.edges.insert(choice, *i);
+                            }
                         }
                     }
                 }
@@ -553,10 +588,12 @@ impl MCTSExtractor {
         egraph: &EGraph,
         tree: &mut MCTSTree,
         oracle_solution: &IndexMap<ClassId, NodeId>,
+        index_to_class_id: &Vec<ClassId>,
+        class_id_to_index: &HashMap<ClassId, usize, BuildHasherDefault<rustc_hash::FxHasher>>
     ) -> Option<(Box<FxHashMap<ClassId, NodeId>>, usize)> {
         // get an MCTSChoice to take from the leaf node
         let first_choice: MCTSChoice = self
-            .find_first_node(node_index.clone(), egraph, tree)
+            .find_first_node(node_index.clone(), egraph, tree, index_to_class_id)
             .unwrap();
 
         // initialize the MCTSNode's decided map and add the MCTSChoice we chose above
@@ -566,14 +603,22 @@ impl MCTSExtractor {
         // initialize a set of e-classes we still need to visit
         let mut new_to_visit = tree[node_index].to_visit.clone();
         // remove the e-class corresponding to the choice made above
-        new_to_visit.remove(&first_choice.class);
+        new_to_visit.set(class_id_to_index[&first_choice.class], false);
         // insert the e-classes of the children of the node we chose above
         let children = egraph[&first_choice.node]
             .children
             .iter()
             .map(|n| (*(egraph.nid_to_cid(&n))).clone())
             .filter(|n| !new_decided.contains_key(n));
-        new_to_visit.extend(children);
+        for cid in children {
+            new_to_visit.set(class_id_to_index[&cid], true);
+        }
+        let mut new_tree_to_visit = BTreeSet::new();
+        for i in 0..new_to_visit.len() {
+            if new_to_visit[i] {
+                new_tree_to_visit.insert(index_to_class_id[i].clone());
+            }
+        }
         let new_node_index = tree.push(
             MCTSNode {
                 to_visit: new_to_visit.clone(),
@@ -600,7 +645,7 @@ impl MCTSExtractor {
                         node: n.clone(),
                     })
                     .collect(),
-                to_visit: new_to_visit.iter().cloned().collect(),
+                to_visit: new_tree_to_visit,
             },
         );
         // update the leaf node to have an edge pointing to the node we just created
@@ -608,7 +653,15 @@ impl MCTSExtractor {
             .edges
             .insert(first_choice.clone(), new_node_index);
         // clone new_to_visit to have a todo list for our rollout
-        let mut todo = new_to_visit.clone();
+        let mut todo: FxHashSet<ClassId> = HashSet::with_capacity_and_hasher(
+            egraph.classes().len(),
+            Default::default(),
+        );
+        for i in 0..new_to_visit.len() {
+            if new_to_visit[i] {
+                todo.insert(index_to_class_id[i].clone());
+            }
+        }
         // initialize a map of choices taken on this rollout
         let mut choices: Box<FxHashMap<ClassId, NodeId>> = Box::new(new_decided.clone());
 
@@ -663,6 +716,8 @@ impl MCTSExtractor {
         mut current_index: usize,
         mut choices: Box<FxHashMap<ClassId, NodeId>>,
         tree: &mut MCTSTree,
+        index_to_class_id: &Vec<ClassId>,
+        class_id_to_index: &HashMap<ClassId, usize, BuildHasherDefault<rustc_hash::FxHasher>>
     ) -> () {
         loop {
             // compute cost
@@ -682,7 +737,7 @@ impl MCTSExtractor {
                 tree[current_index].explored = true;
             }
             // if all current's children are explored, then it's explored
-            if self.find_first_node(current_index, egraph, tree).is_none()
+            if self.find_first_node(current_index, egraph, tree, index_to_class_id).is_none()
                 && tree[current_index].edges.len() > 0
                 && tree[current_index]
                     .edges
