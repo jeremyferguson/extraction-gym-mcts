@@ -149,7 +149,7 @@ impl MCTSExtractor {
         );
         let mut i = 0;
         for (id, _) in egraph.classes() {
-            index_to_class_id[i] = (*id).clone();
+            index_to_class_id.push((*id).clone());
             class_id_to_index.insert((*id).clone(), i);
             i += 1;
         }
