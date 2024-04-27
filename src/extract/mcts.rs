@@ -1,11 +1,12 @@
 use super::*;
 use crate::faster_bottom_up::FasterBottomUpExtractor;
 use crate::faster_greedy_dag::FasterGreedyDagExtractor;
-use rand::seq::SliceRandom;
 use rand::Rng;
 use std::collections::{BTreeSet, BinaryHeap, HashSet};
 use std::f64::consts::SQRT_2;
 use std::ops::{Index, IndexMut};
+use std::sync::Arc;
+use bitvec::prelude::*;
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Ord, PartialOrd)]
 struct MCTSChoice {
@@ -14,7 +15,7 @@ struct MCTSChoice {
 }
 #[derive(Clone)]
 struct MCTSNode {
-    to_visit: FxHashSet<ClassId>,
+    to_visit: Arc<BitSlice<usize, Lsb0>>,
     decided_classes: FxHashMap<ClassId, NodeId>,
     num_rollouts: i32,
     min_cost: f64,
@@ -139,12 +140,15 @@ impl MCTSExtractor {
         warm_start_extractor: Option<ExtractorType>,
     ) -> FxHashMap<ClassId, NodeId> {
         // construct mapping between ClassIds and bitvector indices
-        let mut index_to_class_id: [ClassId; egraph.classes().len()] = [];
-        let mut class_id_to_index: FxHashMap<ClassId, usize>;
+        let mut index_to_class_id = Vec::new();
+        let mut class_id_to_index = FxHashMap::<ClassId, usize>::with_capacity_and_hasher(
+            egraph.classes().len(),
+            Default::default(),
+        );
         let mut i = 0;
         for (id, _) in egraph.classes() {
             index_to_class_id[i] = id;
-            class_id_to_index[id] = i;
+            class_id_to_index.insert(*id, i);
             i += 1;
         }
         // initialize the vector which will contain all our nodes
